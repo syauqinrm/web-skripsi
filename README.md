@@ -1,4 +1,4 @@
-# Alur Kerja Sistem Monitoring Deteksi Tingkat Roasting Biji Kopi (YOLOv8 + Flask + React + PostgreSQL)
+# 🔍Alur Kerja Sistem Monitoring Deteksi Tingkat Roasting Biji Kopi (YOLOv8 + Flask + React + PostgreSQL + ESP32-CAM + OV5640-AF)
 ---
 
 # 🔧 **Spesifikasi Sistem:**
@@ -7,7 +7,7 @@
 * **Backend:** Flask (Python)
 * **Frontend:** React.js (web interface)
 * **Database:** PostgreSQL
-* **Alat:** Arduino Uno + Kamera (hanya mengambil dan mengirim gambar)
+* **Kamera & Pengendali:** ESP32-CAM dengan modul kamera OV5640-AF (hanya mengambil dan mengirim gambar)
 * **Tingkat Roasting:** Green Bean, Light Roast, Medium Roast, dan Dark Roast.
 
 ---
@@ -20,19 +20,16 @@
 
 ### 📍 Komponen:
 
-* Arduino Uno (bertugas sebagai pengendali)
-* Kamera (modul eksternal – contoh: OV7670 atau kamera yang punya antarmuka Wi-Fi)
-* Modul tambahan (karena Arduino Uno tidak punya kemampuan native ambil dan kirim gambar → biasanya butuh ESP32-CAM atau Wi-Fi shield)
+* ESP32-CAM yang mendukung OV5640-AF (DVP Interface)
+* Modul kamera OV5640-AF (Auto-Focus, 5MP) 
+* Terhubung ke Wi-Fi
 
 ### 📦 Proses:
 
-1. Arduino mengaktifkan kamera untuk mengambil gambar (biasanya JPEG)
-2. Gambar dikirim ke backend:
+1. ESP32 mengaktifkan kamera OV5640-AF dan mengambil foto dalam format JPEG
+2. Gambar dikirim langsung ke backend Flask menggunakan HTTP POST multipart/form-data
 
-   * Lewat **HTTP POST multipart/form-data** (jika pakai modul Wi-Fi)
-   * Atau lewat serial ke modul Wi-Fi lain (jika Arduino Uno tidak bisa kirim HTTP langsung)
-
-### 📁 Format Data:
+### 📁 Contoh Format Data:
 
 ```http
 POST /upload-image HTTP/1.1
@@ -49,7 +46,7 @@ Body:
 
 ### 📦 Proses:
 
-1. Flask menerima file dari request `POST /upload-image`
+1. Gambar dari ESP32 diterima melalui endpoint `POST /upload-image`
 
 2. File gambar disimpan sementara di direktori lokal, misal:
 
@@ -81,7 +78,7 @@ file.save(filename)
    results = model(filename)  # filename = path to image
    ```
 
-3. YOLOv8 mengembalikan list objek:
+3. Model YOLOv8 mengembalikan hasil deteksi: bounding box, kelas roasting, confidence:
 
    * Koordinat bounding box (`x1, y1, x2, y2`)
    * Kelas roasting (misal: `green_bean`, `medium_roast`)
@@ -211,10 +208,10 @@ cv2.imwrite("results/filename_annotated.jpg", img)
 
 ## ✅ RANGKUMAN ALUR SEDERHANA
 
-1. **Arduino + Kamera** → ambil gambar → kirim ke Flask
+1. **ESP32-CAM + OV5640-AF** → ambil gambar → kirim ke Flask 
 2. **Flask** → terima gambar → proses dengan YOLOv8
 3. **YOLOv8** → hasil deteksi (kelas + box + confidence)
-4. **Flask** → simpan hasil ke DB + anotasi gambar
+4. **Flask** → anotasi gambar + simpan hasil ke DB
 5. **React.js** → ambil data → tampilkan gambar + info deteksi
 
 ---
