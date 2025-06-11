@@ -1,0 +1,6 @@
+flask
+ultralytics
+opencv-python
+psycopg2-binary
+sqlalchemy
+python-dotenv
