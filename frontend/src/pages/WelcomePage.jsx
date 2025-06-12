@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
-import coffeeImage from "../assets/coffee-seed.png";
+import coffeeImage from "../assets/coffee-seed.svg";
 import { PlayCircle } from "lucide-react";
 
 const WelcomePage = () => {

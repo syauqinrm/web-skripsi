@@ -87,7 +87,7 @@ const PredictionPage = () => {
             <Button
               onClick={() => alert("Fitur Simpan akan diimplementasikan!")}
               className="w-full mt-6"
-              variant="primary">
+              variant="buttonn">
               <Save size={18} />
               Simpan Hasil
             </Button>

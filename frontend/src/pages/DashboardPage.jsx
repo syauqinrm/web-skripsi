@@ -47,7 +47,7 @@ const DashboardPage = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-text-light">{item.title}</p>
-                <p className="text-2xl font-semibold text-text-main">
+                <p className="text-xl font-semibold text-text-main">
                   {item.value}
                 </p>
               </div>

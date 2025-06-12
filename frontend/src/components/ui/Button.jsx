@@ -9,6 +9,7 @@ const Button = ({ children, onClick, className = "", variant = "primary" }) => {
     secondary: "bg-secondary text-text-main hover:bg-opacity-90",
     accent: "bg-accent text-text-main hover:bg-opacity-90",
     kopi: "bg-kopi text-text-main hover:bg-opacity-90",
+    buttonn: "bg-button text-text-main hover:bg-opacity-90",
   };
 
   return (
