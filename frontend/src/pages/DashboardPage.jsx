@@ -1,39 +1,89 @@
 import React from "react";
 import Card from "../components/ui/Card";
+import Loader from "../components/ui/Loader";
 import { CheckCircle, BarChart, Clock, Image as ImageIcon } from "lucide-react";
+import { useStats, useDetections } from "../hooks/useApi";
 
 const DashboardPage = () => {
-  // Data tiruan
+  const { stats, loading: statsLoading, error: statsError } = useStats();
+  const { detections, loading: detectionsLoading } = useDetections(1, 5);
+
+  // Format waktu terakhir
+  const getLastDetectionTime = () => {
+    if (detections.length === 0) return "Belum ada";
+
+    const lastDetection = detections[0];
+    const lastTime = new Date(lastDetection.created_at);
+    const now = new Date();
+    const diffMinutes = Math.floor((now - lastTime) / (1000 * 60));
+
+    if (diffMinutes < 1) return "Baru saja";
+    if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} jam lalu`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} hari lalu`;
+  };
+
+  // Dapatkan level roasting terbanyak
+  const getMostCommonRoast = () => {
+    if (!stats.class_distribution) return "Belum ada data";
+
+    const classes = stats.class_distribution;
+    const maxClass = Object.keys(classes).reduce(
+      (a, b) => (classes[a] > classes[b] ? a : b),
+      Object.keys(classes)[0]
+    );
+
+    return maxClass || "Belum ada data";
+  };
+
   const summaryData = [
     {
       title: "Total Deteksi",
-      value: "1,245",
+      value: stats.total_detections || 0,
       icon: CheckCircle,
       color: "text-success",
     },
     {
-      title: "Gambar Disimpan",
-      value: "89",
+      title: "Deteksi Berhasil",
+      value: stats.completed_detections || 0,
       icon: ImageIcon,
       color: "text-primary",
     },
     {
-      title: "Waktu Deteksi Terakhir",
-      value: "2 menit lalu",
+      title: "Deteksi Terakhir",
+      value: getLastDetectionTime(),
       icon: Clock,
       color: "text-accent",
     },
     {
-      title: "Level Roasting Terbanyak",
-      value: "Medium Roast",
+      title: "Level Terbanyak",
+      value: getMostCommonRoast(),
       icon: BarChart,
       color: "text-secondary",
     },
   ];
 
+  if (statsLoading || detectionsLoading) {
+    return <Loader />;
+  }
+
+  if (statsError) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500">Error loading dashboard: {statsError}</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1 className="text-3xl font-bold text-text-main mb-6">Dashboard</h1>
+
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {summaryData.map((item, index) => (
           <Card key={index}>
@@ -56,18 +106,55 @@ const DashboardPage = () => {
         ))}
       </div>
 
-      <div className="mt-8">
+      {/* Recent Activity */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <h2 className="text-xl font-semibold text-text-main mb-4">
             Aktivitas Terkini
           </h2>
-          <p className="text-text-light">
-            Grafik aktivitas akan ditampilkan di sini saat backend terhubung.
-          </p>
-          {/* Placeholder untuk grafik */}
-          <div className="bg-background h-64 mt-4 rounded-lg flex items-center justify-center">
-            <BarChart size={48} className="text-text-light opacity-50" />
-          </div>
+          {detections.length > 0 ? (
+            <div className="space-y-3">
+              {detections.slice(0, 5).map((detection) => (
+                <div
+                  key={detection.id}
+                  className="flex items-center justify-between border-b pb-2">
+                  <div>
+                    <p className="font-medium">{detection.filename}</p>
+                    <p className="text-sm text-text-light">
+                      {detection.detections_count} deteksi • {detection.status}
+                    </p>
+                  </div>
+                  <span className="text-xs text-text-light">
+                    {new Date(detection.created_at).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-text-light">Belum ada aktivitas</p>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="text-xl font-semibold text-text-main mb-4">
+            Distribusi Kelas
+          </h2>
+          {stats.class_distribution ? (
+            <div className="space-y-2">
+              {Object.entries(stats.class_distribution).map(
+                ([className, count]) => (
+                  <div key={className} className="flex justify-between">
+                    <span className="capitalize">
+                      {className.replace("_", " ")}
+                    </span>
+                    <span className="font-semibold">{count}</span>
+                  </div>
+                )
+              )}
+            </div>
+          ) : (
+            <p className="text-text-light">Belum ada data distribusi</p>
+          )}
         </Card>
       </div>
     </div>
