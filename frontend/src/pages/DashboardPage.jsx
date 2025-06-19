@@ -125,7 +125,10 @@ const DashboardPage = () => {
                     </p>
                   </div>
                   <span className="text-xs text-text-light">
-                    {new Date(detection.created_at).toLocaleTimeString()}
+                    {new Date(detection.created_at).toLocaleTimeString(
+                      "en-GB",
+                      { hour12: false }
+                    )}
                   </span>
                 </div>
               ))}

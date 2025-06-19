@@ -1,6 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import pytz
 from ..config.database import db
+
+# Tentukan timezone Jakarta
+jakarta_tz = pytz.timezone('Asia/Jakarta')
 
 class Detection(db.Model):
     __tablename__ = 'detections'
@@ -14,10 +18,14 @@ class Detection(db.Model):
     detection_classes = db.Column(db.JSON, nullable=True)
     processing_time = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(50), default='uploaded')  # uploaded, processing, completed, failed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.utcnow().replace(tzinfo=pytz.utc))  # Set to UTC explicitly
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.utcnow().replace(tzinfo=pytz.utc), onupdate=datetime.utcnow)
+
     def to_dict(self):
+        # Mengonversi waktu ke Jakarta Timezone
+        created_at_jakarta = self.created_at.astimezone(jakarta_tz) if self.created_at else None
+        updated_at_jakarta = self.updated_at.astimezone(jakarta_tz) if self.updated_at else None
+
         return {
             'id': self.id,
             'filename': self.filename,
@@ -28,6 +36,8 @@ class Detection(db.Model):
             'detection_classes': self.detection_classes,
             'processing_time': self.processing_time,
             'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            # Menggunakan strftime untuk format 24 jam
+            'created_at': created_at_jakarta.strftime('%Y-%m-%d %H:%M:%S') if created_at_jakarta else None,
+            'updated_at': updated_at_jakarta.strftime('%Y-%m-%d %H:%M:%S') if updated_at_jakarta else None
         }
+        

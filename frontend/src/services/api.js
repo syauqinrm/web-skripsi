@@ -68,6 +68,29 @@ class ApiService {
     const response = await fetch(`${API_BASE_URL}/health`);
     return this.handleResponse(response);
   }
+
+  // Jalankan deteksi langsung dari frame video
+  async detectFromFrame(formData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/detect/frame`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Gagal mendeteksi frame.");
+      }
+
+      return {
+        success: true,
+        boxes: data.boxes || [],
+      };
+    } catch (error) {
+      console.error("Detection error:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 export default new ApiService();

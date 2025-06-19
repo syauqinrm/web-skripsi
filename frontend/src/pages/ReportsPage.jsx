@@ -99,7 +99,9 @@ const ReportsPage = () => {
                 </div>
                 <div className="p-4">
                   <p className="text-sm text-text-light">
-                    {new Date(detection.created_at).toLocaleString()}
+                    {new Date(detection.created_at).toLocaleString("en-GB", {
+                      hour12: false,
+                    })}
                   </p>
                   <h3 className="font-semibold text-text-main mt-1">
                     Hasil: {formatDetections(detection)}

@@ -209,3 +209,21 @@ class YOLODetector:
             
         except Exception as e:
             raise Exception(f"Could not save results: {str(e)}")
+        
+    def detect_image(self, image):
+        results = self.model(image)
+        detections = []
+
+        for r in results:
+            for box in r.boxes.data.tolist():
+                x1, y1, x2, y2, score, cls_id = box
+                detections.append({
+                "x": x1,
+                "y": y1,
+                "width": x2 - x1,
+                "height": y2 - y1,
+                "confidence": score,
+                "label": self.model.names[int(cls_id)]
+            })
+
+        return {"detections": detections}

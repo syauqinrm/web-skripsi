@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Loader from "../components/ui/Loader";
@@ -11,28 +11,89 @@ const PredictionPage = () => {
   const [loading, setLoading] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState(null);
-  const fileInputRef = useRef(null);
 
-  const classColors = {
-    light_roast: "border-accent bg-accent",
-    medium_roast: "border-primary bg-primary",
-    dark_roast: "border-secondary bg-secondary",
-    green_bean: "border-success bg-success",
+  const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [liveDetections, setLiveDetections] = useState([]);
+
+  const captureFrameAndDetect = async () => {
+    if (!videoRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) return;
+
+        const formData = new FormData();
+        formData.append("image", blob, "frame.jpg");
+
+        try {
+          const response = await apiService.detectFromFrame(formData); // 👈 Tambahkan di `apiService`
+          if (response.success && response.boxes) {
+            setLiveDetections(response.boxes);
+          }
+        } catch (err) {
+          console.error("Detection error:", err);
+        }
+      },
+      "image/jpeg",
+      0.8
+    );
   };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      captureFrameAndDetect();
+    }, 1000); // Setiap 1 detik ambil frame
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Start camera on component mount
+  useEffect(() => {
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Gagal mengakses kamera:", err);
+        setError("Tidak dapat mengakses kamera perangkat");
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      // Stop camera on unmount
+      if (videoRef.current && videoRef.current.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
 
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file");
+      setError("Silakan pilih file gambar yang valid.");
       return;
     }
 
-    // Validate file size (16MB max)
     if (file.size > 16 * 1024 * 1024) {
-      setError("File size must be less than 16MB");
+      setError("Ukuran file maksimal 16MB.");
       return;
     }
 
@@ -40,12 +101,12 @@ const PredictionPage = () => {
       setLoading(true);
       setError(null);
 
-      // Upload image
       const response = await apiService.uploadImage(file);
-
       if (response.success) {
         setCurrentDetection(response.detection);
         setUploadedImage(file);
+      } else {
+        setError("Gagal mengunggah gambar.");
       }
     } catch (err) {
       setError(err.message);
@@ -62,9 +123,10 @@ const PredictionPage = () => {
       setError(null);
 
       const response = await apiService.runDetection(currentDetection.id);
-
       if (response.success) {
         setCurrentDetection(response.detection);
+      } else {
+        setError("Deteksi gagal dijalankan.");
       }
     } catch (err) {
       setError(err.message);
@@ -83,27 +145,35 @@ const PredictionPage = () => {
   };
 
   const renderBoundingBoxes = () => {
-    if (!currentDetection?.result_path) return null;
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return null;
 
-    // This would need the actual detection results from the API
-    // For now, we'll show the detection count
-    return null;
-  };
+    const ctx = canvas.getContext("2d");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-  const getImageSrc = () => {
-    if (currentDetection?.result_path) {
-      return apiService.getResultImageUrl(currentDetection.id);
-    } else if (currentDetection?.original_path) {
-      return apiService.getOriginalImageUrl(currentDetection.id);
-    } else if (uploadedImage) {
-      return URL.createObjectURL(uploadedImage);
-    }
-    return "/placeholder-stream.jpg";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    liveDetections.forEach((box) => {
+      ctx.strokeStyle = "lime";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+      ctx.fillStyle = "lime";
+      ctx.font = "14px Arial";
+      ctx.fillText(
+        `${box.label} (${Math.round(box.score * 100)}%)`,
+        box.x,
+        box.y - 5
+      );
+    });
+
+    return null; // renderBoundingBoxes tidak perlu return elemen React
   };
 
   const getStatusText = () => {
     if (!currentDetection) return "Belum ada gambar";
-
     switch (currentDetection.status) {
       case "uploaded":
         return "Siap untuk deteksi";
@@ -120,7 +190,6 @@ const PredictionPage = () => {
 
   const getStatusColor = () => {
     if (!currentDetection) return "text-text-light";
-
     switch (currentDetection.status) {
       case "uploaded":
         return "text-blue-500";
@@ -137,15 +206,13 @@ const PredictionPage = () => {
 
   const formatClassDistribution = () => {
     if (!currentDetection?.detection_classes) return [];
-
     const counts = {};
     currentDetection.detection_classes.forEach((cls) => {
       counts[cls] = (counts[cls] || 0) + 1;
     });
-
     return Object.entries(counts).map(([cls, count]) => ({
       class: cls,
-      count: count,
+      count,
       label: cls.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()),
     }));
   };
@@ -171,7 +238,7 @@ const PredictionPage = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Image Display Column */}
+        {/* Video Stream Column */}
         <div className="lg:col-span-2">
           <Card className="p-0 overflow-hidden">
             <div className="relative">
@@ -181,16 +248,18 @@ const PredictionPage = () => {
                 </div>
               ) : (
                 <>
-                  <img
-                    src={getImageSrc()}
-                    alt="Detection preview"
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
                     className="w-full h-auto max-h-96 object-contain"
-                    onError={(e) => {
-                      e.target.src = "/placeholder-stream.jpg";
-                    }}
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute top-0 left-0 w-full h-full pointer-events-none"
                   />
                   {renderBoundingBoxes()}
-
                   {detecting && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                       <div className="text-white text-center">
@@ -203,7 +272,7 @@ const PredictionPage = () => {
               )}
             </div>
 
-            {/* Upload Area */}
+            {/* Upload area (optional) */}
             {!currentDetection && (
               <div className="p-6 border-t">
                 <input
@@ -226,7 +295,7 @@ const PredictionPage = () => {
           </Card>
         </div>
 
-        {/* Info & Control Column */}
+        {/* Info Column */}
         <div>
           <Card>
             <h2 className="text-xl font-semibold text-text-main mb-4">
@@ -253,7 +322,7 @@ const PredictionPage = () => {
                 </p>
               )}
 
-              <div className="border-t my-4"></div>
+              <div className="border-t my-4" />
 
               <h3 className="font-semibold">Detail per Kelas:</h3>
 
@@ -272,7 +341,7 @@ const PredictionPage = () => {
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Buttons */}
             <div className="space-y-2 mt-6">
               {currentDetection?.status === "uploaded" && (
                 <Button
@@ -287,10 +356,7 @@ const PredictionPage = () => {
 
               {currentDetection?.status === "completed" && (
                 <Button
-                  onClick={() => {
-                    // You can implement save functionality here
-                    alert("Hasil telah tersimpan di database!");
-                  }}
+                  onClick={() => alert("Hasil telah tersimpan di database!")}
                   className="w-full"
                   variant="success">
                   <Save size={18} />

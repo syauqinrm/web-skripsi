@@ -4,6 +4,8 @@ from flask import Blueprint, jsonify, current_app, send_file, request
 from ..config.database import db
 from ..models.detection import Detection
 from ..utils.yolo_detector import YOLODetector
+from PIL import Image
+import io
 
 detection_bp = Blueprint('detection', __name__)
 
@@ -138,3 +140,36 @@ def get_detection_stats():
         }), 200
     except Exception as e:
         return jsonify({'error': f'Failed to fetch stats: {str(e)}'}), 500
+    
+@detection_bp.route('/detect/frame', methods=['POST'])
+def detect_from_frame():
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+        image_bytes = file.read()
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # Jalankan deteksi menggunakan YOLO
+        results = detector.detect_image(image)
+
+        # Format respons bounding box
+        response_boxes = []
+        for box in results.get('detections', []):
+            response_boxes.append({
+                'x': int(box['x']),
+                'y': int(box['y']),
+                'width': int(box['width']),
+                'height': int(box['height']),
+                'label': box['label'],
+                'score': float(box['confidence']),
+            })
+
+        return jsonify({
+            'success': True,
+            'boxes': response_boxes
+        }), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Detection failed: {str(e)}'}), 500
