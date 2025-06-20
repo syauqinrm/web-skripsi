@@ -10,6 +10,6 @@ best.pt
 /app/models/__pycache__
 /app/utils/__pycache__
 /instance/static/uploads/*
-/instance/static/uploads/*
+/instance/static/results/*
 .env
 
