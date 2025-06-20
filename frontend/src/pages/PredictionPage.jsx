@@ -10,15 +10,17 @@ const PredictionPage = () => {
   const [uploadedImage, setUploadedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [resetting, setResetting] = useState(false); // 👈 Tambah state untuk reset loading
   const [error, setError] = useState(null);
 
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [liveDetections, setLiveDetections] = useState([]);
+  const [isRealTimeMode, setIsRealTimeMode] = useState(true);
 
   const captureFrameAndDetect = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !isRealTimeMode) return;
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -36,7 +38,7 @@ const PredictionPage = () => {
         formData.append("image", blob, "frame.jpg");
 
         try {
-          const response = await apiService.detectFromFrame(formData); // 👈 Tambahkan di `apiService`
+          const response = await apiService.detectFromFrame(formData);
           if (response.success && response.boxes) {
             setLiveDetections(response.boxes);
           }
@@ -50,14 +52,15 @@ const PredictionPage = () => {
   };
 
   useEffect(() => {
+    if (!isRealTimeMode) return;
+
     const interval = setInterval(() => {
       captureFrameAndDetect();
-    }, 1000); // Setiap 1 detik ambil frame
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isRealTimeMode]);
 
-  // Start camera on component mount
   useEffect(() => {
     const startCamera = async () => {
       try {
@@ -76,7 +79,6 @@ const PredictionPage = () => {
     startCamera();
 
     return () => {
-      // Stop camera on unmount
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
       }
@@ -84,6 +86,10 @@ const PredictionPage = () => {
   }, []);
 
   const handleFileSelect = async (event) => {
+    // 👈 Prevent default form submission
+    event.preventDefault();
+    event.stopPropagation();
+
     const file = event.target.files[0];
     if (!file) return;
 
@@ -100,6 +106,8 @@ const PredictionPage = () => {
     try {
       setLoading(true);
       setError(null);
+      setIsRealTimeMode(false);
+      setLiveDetections([]);
 
       const response = await apiService.uploadImage(file);
       if (response.success) {
@@ -115,7 +123,13 @@ const PredictionPage = () => {
     }
   };
 
-  const handleDetection = async () => {
+  const handleDetection = async (e) => {
+    // 👈 Prevent default form submission
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     if (!currentDetection) return;
 
     try {
@@ -135,12 +149,44 @@ const PredictionPage = () => {
     }
   };
 
-  const handleReset = () => {
-    setCurrentDetection(null);
-    setUploadedImage(null);
-    setError(null);
+  const handleReset = async (e) => {
+    // 👈 Prevent default form submission
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    try {
+      setResetting(true); // 👈 Start reset loading
+
+      // 👈 Simulasi delay untuk animasi
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // 👈 Refresh window setelah animasi
+      window.location.reload();
+    } catch (error) {
+      console.error("Reset error:", error);
+      // 👈 Fallback jika ada error
+      setCurrentDetection(null);
+      setUploadedImage(null);
+      setError(null);
+      setIsRealTimeMode(true);
+      setLiveDetections([]);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setResetting(false);
+    }
+  };
+
+  const handleFileInputClick = (e) => {
+    // 👈 Prevent default form submission
+    e.preventDefault();
+    e.stopPropagation();
+
     if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      fileInputRef.current.click();
     }
   };
 
@@ -169,7 +215,7 @@ const PredictionPage = () => {
       );
     });
 
-    return null; // renderBoundingBoxes tidak perlu return elemen React
+    return null;
   };
 
   const getStatusText = () => {
@@ -217,6 +263,26 @@ const PredictionPage = () => {
     }));
   };
 
+  // 👈 Update loading overlay message
+  if (resetting) {
+    return (
+      <div className="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+        <div className="text-center">
+          <Loader />
+          <p className="mt-4 text-lg font-semibold text-text-main">
+            Mereset halaman...
+          </p>
+          <p className="text-sm text-text-light mt-2">Memuat ulang aplikasi</p>
+          <div className="mt-4 bg-gray-200 rounded-full h-2 w-64 mx-auto">
+            <div
+              className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
+              style={{ width: "100%" }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -224,7 +290,11 @@ const PredictionPage = () => {
           Real-Time Prediction
         </h1>
         {currentDetection && (
-          <Button onClick={handleReset} variant="outline">
+          <Button
+            onClick={handleReset}
+            variant="outline"
+            type="button"
+            disabled={resetting}>
             <X size={18} />
             Reset
           </Button>
@@ -246,6 +316,29 @@ const PredictionPage = () => {
                 <div className="w-full h-96 flex items-center justify-center bg-gray-100">
                   <Loader />
                 </div>
+              ) : currentDetection && !isRealTimeMode ? (
+                <>
+                  <img
+                    src={
+                      currentDetection.result_path
+                        ? apiService.getResultImageUrl(currentDetection.id)
+                        : apiService.getOriginalImageUrl(currentDetection.id)
+                    }
+                    alt="Detection Result"
+                    className="w-full h-auto max-h-96 object-contain"
+                    onError={(e) => {
+                      e.target.src = "/placeholder-image.jpg";
+                    }}
+                  />
+                  {detecting && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <Loader />
+                        <p className="mt-2">Memproses deteksi...</p>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   <video
@@ -259,39 +352,43 @@ const PredictionPage = () => {
                     ref={canvasRef}
                     className="absolute top-0 left-0 w-full h-full pointer-events-none"
                   />
-                  {renderBoundingBoxes()}
-                  {detecting && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <Loader />
-                        <p className="mt-2">Memproses deteksi...</p>
-                      </div>
-                    </div>
-                  )}
+                  {isRealTimeMode && renderBoundingBoxes()}
                 </>
               )}
             </div>
 
-            {/* Upload area (optional) */}
-            {!currentDetection && (
-              <div className="p-6 border-t">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  ref={fileInputRef}
-                  className="hidden"
-                />
+            <div className="p-6 border-t">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                ref={fileInputRef}
+                className="hidden"
+              />
+              <div className="flex gap-2">
                 <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full"
+                  onClick={handleFileInputClick}
+                  className="flex-1"
                   variant="primary"
-                  disabled={loading}>
+                  type="button"
+                  disabled={loading || resetting}>
                   <Upload size={18} />
-                  Pilih Gambar
+                  {currentDetection && !isRealTimeMode
+                    ? "Pilih Gambar Baru"
+                    : "Pilih Gambar"}
                 </Button>
+                {currentDetection && !isRealTimeMode && (
+                  <Button
+                    onClick={handleReset}
+                    variant="outline"
+                    type="button"
+                    disabled={loading || resetting}>
+                    <X size={18} />
+                    {resetting ? "Mereset..." : "Batal"}
+                  </Button>
+                )}
               </div>
-            )}
+            </div>
           </Card>
         </div>
 
@@ -306,16 +403,21 @@ const PredictionPage = () => {
               <p>
                 <strong>Status:</strong>{" "}
                 <span className={`font-semibold ${getStatusColor()}`}>
-                  {getStatusText()}
+                  {resetting
+                    ? "Mereset..."
+                    : isRealTimeMode
+                    ? "Mode Real-time"
+                    : getStatusText()}
                 </span>
               </p>
 
               <p>
                 <strong>Total Biji Kopi:</strong>{" "}
-                {currentDetection?.detections_count || 0}
+                {currentDetection?.detections_count ||
+                  (isRealTimeMode ? liveDetections.length : 0)}
               </p>
 
-              {currentDetection?.processing_time && (
+              {currentDetection?.processing_time && !isRealTimeMode && (
                 <p>
                   <strong>Waktu Proses:</strong>{" "}
                   {currentDetection.processing_time.toFixed(2)}s
@@ -326,42 +428,83 @@ const PredictionPage = () => {
 
               <h3 className="font-semibold">Detail per Kelas:</h3>
 
-              {formatClassDistribution().length > 0 ? (
-                <ul className="list-disc list-inside text-text-light space-y-1">
-                  {formatClassDistribution().map(
-                    ({ class: cls, count, label }) => (
-                      <li key={cls}>
-                        {label}: {count}
+              {currentDetection &&
+              !isRealTimeMode &&
+              formatClassDistribution().length > 0 ? (
+                <div>
+                  <p className="text-sm text-green-600 mb-2">
+                    Hasil deteksi gambar:
+                  </p>
+                  <ul className="list-disc list-inside text-text-light space-y-1">
+                    {formatClassDistribution().map(
+                      ({ class: cls, count, label }) => (
+                        <li key={cls}>
+                          {label}: {count}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              ) : isRealTimeMode && liveDetections.length > 0 ? (
+                <div>
+                  <p className="text-sm text-blue-600 mb-2">
+                    Real-time deteksi:
+                  </p>
+                  <ul className="list-disc list-inside text-text-light space-y-1">
+                    {liveDetections.map((detection, index) => (
+                      <li key={index}>
+                        {detection.label}: {Math.round(detection.score * 100)}%
                       </li>
-                    )
-                  )}
-                </ul>
+                    ))}
+                  </ul>
+                </div>
               ) : (
-                <p className="text-text-light">Belum ada hasil deteksi</p>
+                <p className="text-text-light">
+                  {isRealTimeMode
+                    ? "Belum ada deteksi"
+                    : "Pilih gambar untuk deteksi"}
+                </p>
               )}
             </div>
 
-            {/* Buttons */}
             <div className="space-y-2 mt-6">
-              {currentDetection?.status === "uploaded" && (
+              {currentDetection?.status === "uploaded" && !isRealTimeMode && (
                 <Button
                   onClick={handleDetection}
                   className="w-full"
                   variant="primary"
-                  disabled={detecting}>
+                  type="button"
+                  disabled={detecting || resetting}>
                   <Play size={18} />
                   {detecting ? "Memproses..." : "Mulai Deteksi"}
                 </Button>
               )}
 
-              {currentDetection?.status === "completed" && (
+              {currentDetection?.status === "completed" && !isRealTimeMode && (
                 <Button
-                  onClick={() => alert("Hasil telah tersimpan di database!")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert("Hasil telah tersimpan di database!");
+                  }}
                   className="w-full"
-                  variant="success">
+                  variant="success"
+                  type="button"
+                  disabled={resetting}>
                   <Save size={18} />
                   Hasil Tersimpan
                 </Button>
+              )}
+
+              {isRealTimeMode && !resetting && (
+                <div className="text-center">
+                  <p className="text-sm text-text-light">
+                    Mode deteksi real-time aktif
+                  </p>
+                  <p className="text-xs text-text-light mt-1">
+                    Pilih gambar untuk beralih ke mode deteksi gambar
+                  </p>
+                </div>
               )}
             </div>
           </Card>
