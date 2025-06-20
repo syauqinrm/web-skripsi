@@ -3,3 +3,10 @@
 best.pt.v1
 100best.pt.v2
 50best.pt.v2
+best.pt
+/app/api/__pycache__
+/app/config/__pycache__
+/app/models/__pycache__
+/app/utils/__pycache__
+/instance/static/uploads/*
+/instance/static/uploads/*
