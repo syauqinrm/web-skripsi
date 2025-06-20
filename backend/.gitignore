@@ -4,6 +4,7 @@ best.pt.v1
 100best.pt.v2
 50best.pt.v2
 best.pt
+/app/__pycache__
 /app/api/__pycache__
 /app/config/__pycache__
 /app/models/__pycache__
