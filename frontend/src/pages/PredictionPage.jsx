@@ -64,8 +64,13 @@ const PredictionPage = () => {
   useEffect(() => {
     const startCamera = async () => {
       try {
+        // 👈 Set resolusi kamera yang lebih tinggi
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            aspectRatio: { ideal: 16 / 9 },
+          },
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -346,7 +351,8 @@ const PredictionPage = () => {
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-auto max-h-96 object-contain"
+                    className="w-full h-auto min-h-[450px] max-h-[600px] object-cover bg-black"
+                    style={{ aspectRatio: "16/9" }}
                   />
                   <canvas
                     ref={canvasRef}
@@ -365,6 +371,17 @@ const PredictionPage = () => {
                 ref={fileInputRef}
                 className="hidden"
               />
+
+              {/* 👈 Update info untuk resolusi yang berbeda */}
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>💡 Tips:</strong>
+                  {isRealTimeMode
+                    ? " Kamera real-time menggunakan resolusi HD (1280x720) dan Pencahayaan yang cukup untuk deteksi optimal."
+                    : " Gunakan gambar dengan rasio yang sesuai untuk hasil terbaik."}
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <Button
                   onClick={handleFileInputClick}
@@ -502,7 +519,7 @@ const PredictionPage = () => {
                     Mode deteksi real-time aktif
                   </p>
                   <p className="text-xs text-text-light mt-1">
-                    Pilih gambar untuk beralih ke mode deteksi gambar
+                    Resolusi HD: 1280x720 (16:9)
                   </p>
                 </div>
               )}
