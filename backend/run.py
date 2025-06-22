@@ -5,10 +5,12 @@ from app.api.upload import upload_bp
 import os
 from dotenv import load_dotenv
 from app import create_app
+from flask_cors import CORS
 
 load_dotenv()
 
 app = create_app()
+CORS(app)
 
 def create_app():
     app = Flask(__name__)

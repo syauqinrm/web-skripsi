@@ -1,4 +1,43 @@
-const API_BASE_URL = "http://localhost:5000/api";
+// 👈 Coba beberapa URL secara otomatis
+const detectApiUrl = async () => {
+  const hostname = window.location.hostname;
+  const possibleUrls = [
+    `http://${hostname}:5000/api`,
+    `http://localhost:5000/api`,
+    `http://127.0.0.1:5000/api`,
+    import.meta.env.VITE_API_BASE_URL,
+  ].filter(Boolean);
+
+  for (const url of possibleUrls) {
+    try {
+      const response = await fetch(`${url}/health`, {
+        method: "GET",
+        timeout: 2000,
+      });
+      if (response.ok) {
+        console.log("API detected at:", url);
+        return url;
+      }
+    } catch (error) {
+      console.log(`Failed to connect to ${url}`);
+    }
+  }
+
+  // Fallback
+  return `http://${hostname}:5000/api`;
+};
+
+// 👈 Gunakan async initialization
+let API_BASE_URL = `http://${window.location.hostname}:5000/api`;
+
+// Detect pada saat aplikasi start
+detectApiUrl()
+  .then((url) => {
+    API_BASE_URL = url;
+  })
+  .catch(() => {
+    console.warn("Using default API URL:", API_BASE_URL);
+  });
 
 class ApiService {
   // Helper method untuk handle response

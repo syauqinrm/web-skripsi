@@ -520,7 +520,7 @@ const PredictionPage = () => {
                 <p className="text-sm text-blue-700">
                   <strong>💡 Tips:</strong>
                   {isRealTimeMode
-                    ? " Kamera real-time menggunakan resolusi HD (1280x720). Ketika objek terdeteksi, Anda dapat menyimpan capture untuk analisis detail."
+                    ? " Kamera real-time gunakan resolusi HD (1280x720) dan pencahayaan yang memadai untuk hasil yang optimal. Ketika objek terdeteksi, Anda dapat menyimpan capture untuk analisis detail."
                     : " Gunakan gambar dengan rasio yang sesuai untuk hasil terbaik."}
                 </p>
               </div>
