@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Loader from "../components/ui/Loader";
-import { Save, Upload, Play, X } from "lucide-react";
+import { Save, Upload, Play, X, Camera } from "lucide-react";
 import apiService from "../services/api";
 
 const PredictionPage = () => {
@@ -10,7 +10,8 @@ const PredictionPage = () => {
   const [uploadedImage, setUploadedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [detecting, setDetecting] = useState(false);
-  const [resetting, setResetting] = useState(false); // 👈 Tambah state untuk reset loading
+  const [resetting, setResetting] = useState(false);
+  const [capturingFrame, setCapturingFrame] = useState(false); // 👈 State untuk capture
   const [error, setError] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -51,6 +52,121 @@ const PredictionPage = () => {
     );
   };
 
+  // 👈 Fungsi untuk capture dan save frame real-time - DIPERBAIKI
+  const handleSaveCapture = async () => {
+    if (!videoRef.current || !isRealTimeMode) {
+      setError("Video tidak tersedia untuk capture");
+      return;
+    }
+
+    try {
+      setCapturingFrame(true);
+      setError(null);
+
+      const video = videoRef.current;
+
+      // 👈 Pastikan video sudah loaded dan memiliki dimensi
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        setError("Video belum siap untuk capture");
+        setCapturingFrame(false);
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 👈 Draw bounding boxes pada captured frame
+      if (liveDetections.length > 0) {
+        liveDetections.forEach((box) => {
+          ctx.strokeStyle = "lime";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+          // 👈 Label background
+          ctx.fillStyle = "black";
+          ctx.fillRect(box.x, box.y - 25, 200, 25);
+
+          // 👈 Label text
+          ctx.fillStyle = "white";
+          ctx.font = "16px Arial";
+          ctx.fillText(
+            `${box.label} (${Math.round(box.score * 100)}%)`,
+            box.x + 5,
+            box.y - 8
+          );
+        });
+      }
+
+      // 👈 Convert canvas to blob dengan Promise wrapper
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.9);
+      });
+
+      if (!blob) {
+        setError("Gagal membuat capture image");
+        setCapturingFrame(false);
+        return;
+      }
+
+      // 👈 Buat File object seperti file upload biasa
+      const file = new File([blob], `realtime-capture-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
+
+      console.log("Created file:", {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
+
+      try {
+        // 👈 Gunakan file object seperti upload biasa
+        const response = await apiService.uploadImage(file);
+
+        if (response.success) {
+          // 👈 Langsung jalankan deteksi pada captured frame
+          const detectionResponse = await apiService.runDetection(
+            response.detection.id
+          );
+
+          if (detectionResponse.success) {
+            // 👈 Pindah ke mode upload dan tampilkan hasil
+            setIsRealTimeMode(false);
+            setCurrentDetection(detectionResponse.detection);
+            setLiveDetections([]);
+
+            // 👈 Notifikasi berhasil
+            alert(
+              `Capture berhasil disimpan! Terdeteksi ${
+                detectionResponse.detection.detections_count || 0
+              } biji kopi.`
+            );
+          } else {
+            setError(
+              "Capture berhasil disimpan tapi deteksi gagal dijalankan."
+            );
+          }
+        } else {
+          setError(
+            `Gagal menyimpan capture: ${response.message || "Unknown error"}`
+          );
+        }
+      } catch (uploadErr) {
+        console.error("Upload error details:", uploadErr);
+        setError(`Error menyimpan capture: ${uploadErr.message}`);
+      }
+    } catch (error) {
+      console.error("Capture error:", error);
+      setError(`Gagal melakukan capture: ${error.message}`);
+    } finally {
+      setCapturingFrame(false);
+    }
+  };
+
   useEffect(() => {
     if (!isRealTimeMode) return;
 
@@ -64,7 +180,6 @@ const PredictionPage = () => {
   useEffect(() => {
     const startCamera = async () => {
       try {
-        // 👈 Set resolusi kamera yang lebih tinggi
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 1280, max: 1920 },
@@ -91,7 +206,6 @@ const PredictionPage = () => {
   }, []);
 
   const handleFileSelect = async (event) => {
-    // 👈 Prevent default form submission
     event.preventDefault();
     event.stopPropagation();
 
@@ -129,7 +243,6 @@ const PredictionPage = () => {
   };
 
   const handleDetection = async (e) => {
-    // 👈 Prevent default form submission
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -155,23 +268,17 @@ const PredictionPage = () => {
   };
 
   const handleReset = async (e) => {
-    // 👈 Prevent default form submission
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
 
     try {
-      setResetting(true); // 👈 Start reset loading
-
-      // 👈 Simulasi delay untuk animasi
+      setResetting(true);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // 👈 Refresh window setelah animasi
       window.location.reload();
     } catch (error) {
       console.error("Reset error:", error);
-      // 👈 Fallback jika ada error
       setCurrentDetection(null);
       setUploadedImage(null);
       setError(null);
@@ -186,7 +293,6 @@ const PredictionPage = () => {
   };
 
   const handleFileInputClick = (e) => {
-    // 👈 Prevent default form submission
     e.preventDefault();
     e.stopPropagation();
 
@@ -294,16 +400,29 @@ const PredictionPage = () => {
         <h1 className="text-3xl font-bold text-text-main">
           Real-Time Prediction
         </h1>
-        {currentDetection && (
-          <Button
-            onClick={handleReset}
-            variant="outline"
-            type="button"
-            disabled={resetting}>
-            <X size={18} />
-            Reset
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {/* 👈 Tombol Save Capture untuk mode real-time */}
+          {isRealTimeMode && (
+            <Button
+              onClick={handleSaveCapture}
+              variant="success"
+              type="button"
+              disabled={capturingFrame || liveDetections.length === 0}>
+              <Camera size={18} />
+              {capturingFrame ? "Menyimpan..." : "Save Capture"}
+            </Button>
+          )}
+          {currentDetection && (
+            <Button
+              onClick={handleReset}
+              variant="outline"
+              type="button"
+              disabled={resetting}>
+              <X size={18} />
+              Reset
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -312,14 +431,30 @@ const PredictionPage = () => {
         </Card>
       )}
 
+      {/* 👈 Info capture tersedia */}
+      {isRealTimeMode && liveDetections.length > 0 && (
+        <Card className="mb-6 p-4 bg-green-50 border-green-200">
+          <p className="text-green-700">
+            <strong>📸 Capture Ready:</strong> Terdeteksi{" "}
+            {liveDetections.length} objek. Klik "Save Capture" untuk menyimpan
+            frame dengan deteksi.
+          </p>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Video Stream Column */}
         <div className="lg:col-span-2">
           <Card className="p-0 overflow-hidden">
             <div className="relative">
-              {loading ? (
+              {loading || capturingFrame ? (
                 <div className="w-full h-96 flex items-center justify-center bg-gray-100">
-                  <Loader />
+                  <div className="text-center">
+                    <Loader />
+                    <p className="mt-2">
+                      {capturingFrame ? "Menyimpan capture..." : "Memuat..."}
+                    </p>
+                  </div>
                 </div>
               ) : currentDetection && !isRealTimeMode ? (
                 <>
@@ -359,6 +494,15 @@ const PredictionPage = () => {
                     className="absolute top-0 left-0 w-full h-full pointer-events-none"
                   />
                   {isRealTimeMode && renderBoundingBoxes()}
+
+                  {/* 👈 Overlay capture indicator */}
+                  {capturingFrame && (
+                    <div className="absolute inset-0 bg-white bg-opacity-30 flex items-center justify-center">
+                      <div className="bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
+                        📸 Capturing Frame...
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -372,12 +516,11 @@ const PredictionPage = () => {
                 className="hidden"
               />
 
-              {/* 👈 Update info untuk resolusi yang berbeda */}
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-700">
                   <strong>💡 Tips:</strong>
                   {isRealTimeMode
-                    ? " Kamera real-time menggunakan resolusi HD (1280x720) dan Pencahayaan yang cukup untuk deteksi optimal."
+                    ? " Kamera real-time menggunakan resolusi HD (1280x720). Ketika objek terdeteksi, Anda dapat menyimpan capture untuk analisis detail."
                     : " Gunakan gambar dengan rasio yang sesuai untuk hasil terbaik."}
                 </p>
               </div>
@@ -388,7 +531,7 @@ const PredictionPage = () => {
                   className="flex-1"
                   variant="primary"
                   type="button"
-                  disabled={loading || resetting}>
+                  disabled={loading || resetting || capturingFrame}>
                   <Upload size={18} />
                   {currentDetection && !isRealTimeMode
                     ? "Pilih Gambar Baru"
@@ -422,6 +565,8 @@ const PredictionPage = () => {
                 <span className={`font-semibold ${getStatusColor()}`}>
                   {resetting
                     ? "Mereset..."
+                    : capturingFrame
+                    ? "Menyimpan capture..."
                     : isRealTimeMode
                     ? "Mode Real-time"
                     : getStatusText()}
@@ -513,14 +658,33 @@ const PredictionPage = () => {
                 </Button>
               )}
 
+              {/* 👈 Tombol Save Capture di panel info juga */}
               {isRealTimeMode && !resetting && (
-                <div className="text-center">
-                  <p className="text-sm text-text-light">
-                    Mode deteksi real-time aktif
-                  </p>
-                  <p className="text-xs text-text-light mt-1">
-                    Resolusi HD: 1280x720 (16:9)
-                  </p>
+                <div className="space-y-2">
+                  {liveDetections.length > 0 && (
+                    <Button
+                      onClick={handleSaveCapture}
+                      className="w-full"
+                      variant="success"
+                      type="button"
+                      disabled={capturingFrame}>
+                      <Camera size={18} />
+                      {capturingFrame ? "Menyimpan..." : "Save Capture"}
+                    </Button>
+                  )}
+                  <div className="text-center">
+                    <p className="text-sm text-text-light">
+                      Mode deteksi real-time aktif
+                    </p>
+                    <p className="text-xs text-text-light mt-1">
+                      Resolusi HD: 1280x720 (16:9)
+                    </p>
+                    {liveDetections.length > 0 && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Siap untuk capture
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
