@@ -1,34 +1,45 @@
 import React from "react";
-import { Menu, X } from "lucide-react"; // Tambahkan import X
+import { Menu, X } from "lucide-react";
+import Button from "../ui/Button";
 
-// Terima prop 'title' dan 'isSidebarOpen'
-const Header = ({ onMenuClick, title, isSidebarOpen }) => {
+// 👈 Gunakan default parameters instead of defaultProps
+const Header = ({
+  title = "Coffee Bean Detection",
+  onMenuToggle = () => {},
+  isMobileMenuOpen = false,
+}) => {
   return (
-    <header className="bg-surface shadow-sm sticky top-0 z-20 flex-shrink-0">
-      <div className="flex items-center justify-between h-16 px-4 md:px-8">
-        <div className="flex items-center">
-          {/* Tombol Menu untuk Mobile */}
-          <button
-            onClick={onMenuClick}
-            className="md:hidden text-text-main mr-4">
-            {/* Ganti ikon berdasarkan state isSidebarOpen */}
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+    <header className="bg-white shadow-sm border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Left section */}
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <h1 className="text-xl font-bold text-primary">{title}</h1>
+            </div>
+          </div>
 
-          {/* Judul Halaman Dinamis */}
-          <h1 className="text-lg font-semibold text-text-main">{title}</h1>
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onMenuToggle}
+              className="p-2">
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </Button>
+          </div>
         </div>
-
-        {/* Anda bisa menambahkan ikon profil atau notifikasi di sini jika perlu */}
-        {/* <div className="flex items-center gap-4"> ... </div> */}
       </div>
     </header>
   );
 };
 
-Header.defaultProps = {
-  title: "Dashboard",
-  isSidebarOpen: false, // Tambahkan default prop
-};
+// 👈 Hapus defaultProps
+// Header.defaultProps = {
+//   title: "Coffee Bean Detection",
+//   onMenuToggle: () => {},
+//   isMobileMenuOpen: false,
+// };
 
 export default Header;

@@ -1,12 +1,22 @@
 import React from "react";
 
-const Card = ({ children, className = "" }) => {
+// 👈 Gunakan default parameters
+const Card = ({ children, className = "", onClick = null, ...props }) => {
+  const baseClasses =
+    "bg-white rounded-lg shadow-sm border border-gray-200 p-6";
+  const clickableClasses = onClick
+    ? "cursor-pointer hover:shadow-md transition-shadow"
+    : "";
+
   return (
     <div
-      className={`bg-surface p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow ${className}`}>
+      className={`${baseClasses} ${clickableClasses} ${className}`}
+      onClick={onClick}
+      {...props}>
       {children}
     </div>
   );
 };
 
+// 👈 Hapus defaultProps jika ada
 export default Card;
