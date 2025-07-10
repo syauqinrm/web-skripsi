@@ -130,6 +130,61 @@ class ApiService {
       return { success: false, error: error.message };
     }
   }
+
+  // ESP32-CAM Live Stream Detection
+  async getLatestDetection() {
+    const response = await fetch(`${API_BASE_URL}/live-stream/latest`);
+    return this.handleResponse(response);
+  }
+
+  // Get processed image with bounding boxes
+  getProcessedImageUrl() {
+    return `${API_BASE_URL}/live-stream/processed-image?t=${Date.now()}`;
+  }
+
+  // ESP32-CAM specific endpoints
+  async checkEsp32Status(esp32IP) {
+    try {
+      const response = await fetch(`http://${esp32IP}/status`, {
+        method: "GET",
+        timeout: 5000,
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`ESP32-CAM connection failed: ${error.message}`);
+    }
+  }
+
+  async enableEsp32Detection(esp32IP) {
+    try {
+      const response = await fetch(`http://${esp32IP}/enable-detection`, {
+        method: "POST",
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`Failed to enable detection: ${error.message}`);
+    }
+  }
+
+  async disableEsp32Detection(esp32IP) {
+    try {
+      const response = await fetch(`http://${esp32IP}/disable-detection`, {
+        method: "POST",
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`Failed to disable detection: ${error.message}`);
+    }
+  }
+
+  // Get ESP32-CAM stream URLs
+  getEsp32StreamUrl(esp32IP) {
+    return `http://${esp32IP}:81/stream`;
+  }
+
+  getEsp32DetectionStreamUrl(esp32IP) {
+    return `http://${esp32IP}:81/detected-stream`;
+  }
 }
 
 export default new ApiService();

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Loader from "../components/ui/Loader";
-import { Save, Upload, Play, X, Camera } from "lucide-react";
+import { Save, Upload, Play, X, Camera, Wifi, WifiOff } from "lucide-react";
 import apiService from "../services/api";
 
 const PredictionPage = () => {
@@ -11,51 +11,118 @@ const PredictionPage = () => {
   const [loading, setLoading] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [capturingFrame, setCapturingFrame] = useState(false); // 👈 State untuk capture
+  const [capturingFrame, setCapturingFrame] = useState(false);
   const [error, setError] = useState(null);
 
-  const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  // ESP32-CAM specific states
+  const [esp32IP] = useState("172.20.10.2");
+  const [esp32Status, setEsp32Status] = useState("Checking...");
+  const [esp32Connected, setEsp32Connected] = useState(false);
+  const [streamUrl, setStreamUrl] = useState("");
+  const [detectionEnabled, setDetectionEnabled] = useState(false);
   const [liveDetections, setLiveDetections] = useState([]);
   const [isRealTimeMode, setIsRealTimeMode] = useState(true);
+  const [processedImageUrl, setProcessedImageUrl] = useState("");
+  const [lastDetectionTime, setLastDetectionTime] = useState(null);
 
-  const captureFrameAndDetect = async () => {
-    if (!videoRef.current || !isRealTimeMode) return;
+  const fileInputRef = useRef(null);
+  const imgRef = useRef(null);
+  const canvasRef = useRef(null);
 
-    const video = videoRef.current;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(
-      async (blob) => {
-        if (!blob) return;
-
-        const formData = new FormData();
-        formData.append("image", blob, "frame.jpg");
-
-        try {
-          const response = await apiService.detectFromFrame(formData);
-          if (response.success && response.boxes) {
-            setLiveDetections(response.boxes);
-          }
-        } catch (err) {
-          console.error("Detection error:", err);
-        }
-      },
-      "image/jpeg",
-      0.8
-    );
+  // Check ESP32-CAM connection
+  const checkEsp32Connection = async () => {
+    try {
+      const response = await apiService.checkEsp32Status(esp32IP);
+      if (response.status === "ok") {
+        setEsp32Status("ESP32-CAM Connected");
+        setEsp32Connected(true);
+        return true;
+      } else {
+        setEsp32Status("ESP32-CAM Disconnected");
+        setEsp32Connected(false);
+        return false;
+      }
+    } catch (error) {
+      setEsp32Status("Connection Error");
+      setEsp32Connected(false);
+      console.error("ESP32 connection error:", error);
+      return false;
+    }
   };
 
-  // 👈 Fungsi untuk capture dan save frame real-time - DIPERBAIKI
+  // Start ESP32-CAM stream
+  const startEsp32Stream = () => {
+    if (!esp32Connected) return;
+
+    if (detectionEnabled) {
+      setStreamUrl(apiService.getEsp32DetectionStreamUrl(esp32IP));
+      setProcessedImageUrl(apiService.getProcessedImageUrl());
+    } else {
+      setStreamUrl(apiService.getEsp32StreamUrl(esp32IP));
+      setProcessedImageUrl("");
+    }
+
+    console.log("ESP32-CAM stream started");
+  };
+
+  // Stop ESP32-CAM stream
+  const stopEsp32Stream = () => {
+    setStreamUrl("");
+    setProcessedImageUrl("");
+    console.log("ESP32-CAM stream stopped");
+  };
+
+  // Toggle live detection
+  const toggleLiveDetection = async () => {
+    if (!esp32Connected) {
+      setError("ESP32-CAM not connected");
+      return;
+    }
+
+    try {
+      if (!detectionEnabled) {
+        await apiService.enableEsp32Detection(esp32IP);
+        setDetectionEnabled(true);
+        setStreamUrl(apiService.getEsp32DetectionStreamUrl(esp32IP));
+        setProcessedImageUrl(apiService.getProcessedImageUrl());
+        console.log("Live detection enabled");
+      } else {
+        await apiService.disableEsp32Detection(esp32IP);
+        setDetectionEnabled(false);
+        setStreamUrl(apiService.getEsp32StreamUrl(esp32IP));
+        setProcessedImageUrl("");
+        setLiveDetections([]);
+        console.log("Live detection disabled");
+      }
+    } catch (error) {
+      setError(`Failed to toggle detection: ${error.message}`);
+    }
+  };
+
+  // Fetch latest detection results
+  const fetchLatestDetection = async () => {
+    if (!detectionEnabled) return;
+
+    try {
+      const response = await apiService.getLatestDetection();
+      if (response.success) {
+        setLiveDetections(response.detections || []);
+        setLastDetectionTime(new Date(response.timestamp * 1000));
+
+        // Update processed image URL with timestamp to force refresh
+        setProcessedImageUrl(
+          `${apiService.getProcessedImageUrl()}?t=${Date.now()}`
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch latest detection:", error);
+    }
+  };
+
+  // Capture frame and save to database
   const handleSaveCapture = async () => {
-    if (!videoRef.current || !isRealTimeMode) {
-      setError("Video tidak tersedia untuk capture");
+    if (!esp32Connected || !isRealTimeMode) {
+      setError("ESP32-CAM not available for capture");
       return;
     }
 
@@ -63,148 +130,30 @@ const PredictionPage = () => {
       setCapturingFrame(true);
       setError(null);
 
-      const video = videoRef.current;
+      // Capture current frame by making a request to ESP32-CAM
+      const captureResponse = await fetch(`http://${esp32IP}/capture`);
+      const result = await captureResponse.json();
 
-      // 👈 Pastikan video sudah loaded dan memiliki dimensi
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        setError("Video belum siap untuk capture");
-        setCapturingFrame(false);
-        return;
-      }
+      if (result.success) {
+        alert(
+          `Frame captured successfully! Objects detected: ${
+            result.detections || 0
+          }`
+        );
 
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // 👈 Draw bounding boxes pada captured frame
-      if (liveDetections.length > 0) {
-        liveDetections.forEach((box) => {
-          ctx.strokeStyle = "lime";
-          ctx.lineWidth = 3;
-          ctx.strokeRect(box.x, box.y, box.width, box.height);
-
-          // 👈 Label background
-          ctx.fillStyle = "black";
-          ctx.fillRect(box.x, box.y - 25, 200, 25);
-
-          // 👈 Label text
-          ctx.fillStyle = "white";
-          ctx.font = "16px Arial";
-          ctx.fillText(
-            `${box.label} (${Math.round(box.score * 100)}%)`,
-            box.x + 5,
-            box.y - 8
-          );
-        });
-      }
-
-      // 👈 Convert canvas to blob dengan Promise wrapper
-      const blob = await new Promise((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", 0.9);
-      });
-
-      if (!blob) {
-        setError("Gagal membuat capture image");
-        setCapturingFrame(false);
-        return;
-      }
-
-      // 👈 Buat File object seperti file upload biasa
-      const file = new File([blob], `realtime-capture-${Date.now()}.jpg`, {
-        type: "image/jpeg",
-      });
-
-      console.log("Created file:", {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      });
-
-      try {
-        // 👈 Gunakan file object seperti upload biasa
-        const response = await apiService.uploadImage(file);
-
-        if (response.success) {
-          // 👈 Langsung jalankan deteksi pada captured frame
-          const detectionResponse = await apiService.runDetection(
-            response.detection.id
-          );
-
-          if (detectionResponse.success) {
-            // 👈 Pindah ke mode upload dan tampilkan hasil
-            setIsRealTimeMode(false);
-            setCurrentDetection(detectionResponse.detection);
-            setLiveDetections([]);
-
-            // 👈 Notifikasi berhasil
-            alert(
-              `Capture berhasil disimpan! Terdeteksi ${
-                detectionResponse.detection.detections_count || 0
-              } biji kopi.`
-            );
-          } else {
-            setError(
-              "Capture berhasil disimpan tapi deteksi gagal dijalankan."
-            );
-          }
-        } else {
-          setError(
-            `Gagal menyimpan capture: ${response.message || "Unknown error"}`
-          );
-        }
-      } catch (uploadErr) {
-        console.error("Upload error details:", uploadErr);
-        setError(`Error menyimpan capture: ${uploadErr.message}`);
+        // Refresh detections list
+        // You might want to call a function to refresh the reports page
+      } else {
+        setError("Failed to capture frame");
       }
     } catch (error) {
-      console.error("Capture error:", error);
-      setError(`Gagal melakukan capture: ${error.message}`);
+      setError(`Capture failed: ${error.message}`);
     } finally {
       setCapturingFrame(false);
     }
   };
 
-  useEffect(() => {
-    if (!isRealTimeMode) return;
-
-    const interval = setInterval(() => {
-      captureFrameAndDetect();
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isRealTimeMode]);
-
-  useEffect(() => {
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
-            aspectRatio: { ideal: 16 / 9 },
-          },
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Gagal mengakses kamera:", err);
-        setError("Tidak dapat mengakses kamera perangkat");
-      }
-    };
-
-    startCamera();
-
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
-
+  // File upload (keep existing functionality)
   const handleFileSelect = async (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -213,12 +162,12 @@ const PredictionPage = () => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Silakan pilih file gambar yang valid.");
+      setError("Please select a valid image file.");
       return;
     }
 
     if (file.size > 16 * 1024 * 1024) {
-      setError("Ukuran file maksimal 16MB.");
+      setError("Maximum file size is 16MB.");
       return;
     }
 
@@ -233,7 +182,7 @@ const PredictionPage = () => {
         setCurrentDetection(response.detection);
         setUploadedImage(file);
       } else {
-        setError("Gagal mengunggah gambar.");
+        setError("Failed to upload image.");
       }
     } catch (err) {
       setError(err.message);
@@ -242,6 +191,14 @@ const PredictionPage = () => {
     }
   };
 
+  // Handle file input click
+  const handleFileInputClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Run detection on uploaded image
   const handleDetection = async (e) => {
     if (e) {
       e.preventDefault();
@@ -258,7 +215,7 @@ const PredictionPage = () => {
       if (response.success) {
         setCurrentDetection(response.detection);
       } else {
-        setError("Deteksi gagal dijalankan.");
+        setError("Detection failed.");
       }
     } catch (err) {
       setError(err.message);
@@ -267,6 +224,7 @@ const PredictionPage = () => {
     }
   };
 
+  // Reset to initial state
   const handleReset = async (e) => {
     if (e) {
       e.preventDefault();
@@ -276,9 +234,7 @@ const PredictionPage = () => {
     try {
       setResetting(true);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      window.location.reload();
-    } catch (error) {
-      console.error("Reset error:", error);
+
       setCurrentDetection(null);
       setUploadedImage(null);
       setError(null);
@@ -288,58 +244,30 @@ const PredictionPage = () => {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+
+      // Restart ESP32-CAM stream if connected
+      if (esp32Connected) {
+        startEsp32Stream();
+      }
+    } catch (error) {
+      console.error("Reset error:", error);
+    } finally {
       setResetting(false);
     }
   };
 
-  const handleFileInputClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const renderBoundingBoxes = () => {
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    if (!canvas || !video) return null;
-
-    const ctx = canvas.getContext("2d");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    liveDetections.forEach((box) => {
-      ctx.strokeStyle = "lime";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
-
-      ctx.fillStyle = "lime";
-      ctx.font = "14px Arial";
-      ctx.fillText(
-        `${box.label} (${Math.round(box.score * 100)}%)`,
-        box.x,
-        box.y - 5
-      );
-    });
-
-    return null;
-  };
-
+  // Helper functions
   const getStatusText = () => {
-    if (!currentDetection) return "Belum ada gambar";
+    if (!currentDetection) return "No image uploaded";
     switch (currentDetection.status) {
       case "uploaded":
-        return "Siap untuk deteksi";
+        return "Ready for detection";
       case "processing":
-        return "Sedang memproses...";
+        return "Processing...";
       case "completed":
-        return "Deteksi selesai";
+        return "Detection completed";
       case "failed":
-        return "Deteksi gagal";
+        return "Detection failed";
       default:
         return currentDetection.status;
     }
@@ -374,7 +302,62 @@ const PredictionPage = () => {
     }));
   };
 
-  // 👈 Update loading overlay message
+  // Render bounding boxes overlay for live detection
+  const renderBoundingBoxes = () => {
+    if (!liveDetections || liveDetections.length === 0) return null;
+
+    return (
+      <div className="absolute inset-0 pointer-events-none">
+        {liveDetections.map((detection, index) => (
+          <div
+            key={index}
+            className="absolute border-2 border-green-400"
+            style={{
+              left: `${detection.x}px`,
+              top: `${detection.y}px`,
+              width: `${detection.width}px`,
+              height: `${detection.height}px`,
+            }}>
+            <div className="absolute -top-6 left-0 bg-green-400 text-white px-2 py-1 text-xs rounded">
+              {detection.label}: {Math.round(detection.confidence * 100)}%
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Initialize ESP32-CAM connection
+  useEffect(() => {
+    const initializeEsp32 = async () => {
+      console.log("Initializing ESP32-CAM...");
+      const connected = await checkEsp32Connection();
+      if (connected) {
+        startEsp32Stream();
+      } else {
+        setError("Cannot connect to ESP32-CAM. Please check connection.");
+      }
+    };
+
+    initializeEsp32();
+
+    return () => {
+      stopEsp32Stream();
+    };
+  }, []);
+
+  // Fetch detection results periodically when live detection is enabled
+  useEffect(() => {
+    if (!detectionEnabled) return;
+
+    const interval = setInterval(() => {
+      fetchLatestDetection();
+    }, 2000); // Fetch every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [detectionEnabled]);
+
+  // Loading overlay
   if (resetting) {
     return (
       <div className="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
@@ -401,17 +384,32 @@ const PredictionPage = () => {
           Real-Time Prediction
         </h1>
         <div className="flex gap-2">
-          {/* 👈 Tombol Save Capture untuk mode real-time */}
+          {/* ESP32-CAM Live Detection Toggle */}
+          {isRealTimeMode && esp32Connected && (
+            <Button
+              onClick={toggleLiveDetection}
+              variant={detectionEnabled ? "success" : "outline"}
+              type="button"
+              disabled={!esp32Connected}>
+              {detectionEnabled ? <WifiOff size={18} /> : <Wifi size={18} />}
+              {detectionEnabled ? "Stop Detection" : "Start Detection"}
+            </Button>
+          )}
+
+          {/* Save Capture button for ESP32-CAM */}
           {isRealTimeMode && (
             <Button
               onClick={handleSaveCapture}
               variant="success"
               type="button"
-              disabled={capturingFrame || liveDetections.length === 0}>
+              disabled={
+                capturingFrame || liveDetections.length === 0 || !esp32Connected
+              }>
               <Camera size={18} />
               {capturingFrame ? "Menyimpan..." : "Save Capture"}
             </Button>
           )}
+
           {currentDetection && (
             <Button
               onClick={handleReset}
@@ -431,8 +429,40 @@ const PredictionPage = () => {
         </Card>
       )}
 
-      {/* 👈 Info capture tersedia */}
-      {isRealTimeMode && liveDetections.length > 0 && (
+      {/* ESP32-CAM status info */}
+      <Card className="mb-6 p-4 bg-blue-50 border-blue-200">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-blue-700">
+              <strong>📡 ESP32-CAM Status:</strong> {esp32Status}
+            </p>
+            <p className="text-blue-600 text-sm">
+              IP: {esp32IP} | Stream: {streamUrl ? "Active" : "Inactive"}
+              {detectionEnabled && " | Live Detection: ON"}
+            </p>
+            {lastDetectionTime && (
+              <p className="text-blue-600 text-xs">
+                Last Detection: {lastDetectionTime.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={startEsp32Stream}
+              variant="outline"
+              size="sm"
+              disabled={!esp32Connected}>
+              📹 Start Stream
+            </Button>
+            <Button onClick={stopEsp32Stream} variant="outline" size="sm">
+              ⏹️ Stop Stream
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Capture ready info */}
+      {isRealTimeMode && liveDetections.length > 0 && esp32Connected && (
         <Card className="mb-6 p-4 bg-green-50 border-green-200">
           <p className="text-green-700">
             <strong>📸 Capture Ready:</strong> Terdeteksi{" "}
@@ -443,7 +473,7 @@ const PredictionPage = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Video Stream Column */}
+        {/* Video Stream Column - Now using ESP32-CAM */}
         <div className="lg:col-span-2">
           <Card className="p-0 overflow-hidden">
             <div className="relative">
@@ -452,12 +482,15 @@ const PredictionPage = () => {
                   <div className="text-center">
                     <Loader />
                     <p className="mt-2">
-                      {capturingFrame ? "Menyimpan capture..." : "Memuat..."}
+                      {capturingFrame
+                        ? "Menyimpan ESP32-CAM capture..."
+                        : "Memuat..."}
                     </p>
                   </div>
                 </div>
               ) : currentDetection && !isRealTimeMode ? (
                 <>
+                  {/* Uploaded image display */}
                   <img
                     src={
                       currentDetection.result_path
@@ -481,25 +514,54 @@ const PredictionPage = () => {
                 </>
               ) : (
                 <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-auto min-h-[450px] max-h-[600px] object-cover bg-black"
-                    style={{ aspectRatio: "16/9" }}
-                  />
-                  <canvas
-                    ref={canvasRef}
-                    className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                  />
-                  {isRealTimeMode && renderBoundingBoxes()}
+                  {/* ESP32-CAM stream */}
+                  {streamUrl && esp32Connected ? (
+                    <div className="relative">
+                      <img
+                        ref={imgRef}
+                        src={streamUrl}
+                        alt="ESP32-CAM Stream"
+                        className="w-full h-auto min-h-[450px] max-h-[600px] object-cover bg-black"
+                        style={{ aspectRatio: "16/9" }}
+                        onError={(e) => {
+                          console.error("ESP32-CAM stream error");
+                          setError("ESP32-CAM stream error. Check connection.");
+                        }}
+                        onLoad={() => {
+                          console.log("ESP32-CAM stream loaded");
+                          setError(null);
+                        }}
+                      />
 
-                  {/* 👈 Overlay capture indicator */}
+                      {/* Bounding boxes overlay */}
+                      {isRealTimeMode && renderBoundingBoxes()}
+
+                      {/* Detection status overlay */}
+                      {detectionEnabled && (
+                        <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm">
+                          🔍 Live Detection ON
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full h-96 flex items-center justify-center bg-gray-800 text-white">
+                      <div className="text-center">
+                        <Camera size={48} className="mx-auto mb-4" />
+                        <p className="text-lg">ESP32-CAM Stream</p>
+                        <p className="text-sm mt-2">
+                          {esp32Connected
+                            ? "Click 'Start Stream' to begin"
+                            : `Connecting to ${esp32IP}...`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Capture overlay for ESP32-CAM */}
                   {capturingFrame && (
                     <div className="absolute inset-0 bg-white bg-opacity-30 flex items-center justify-center">
                       <div className="bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
-                        📸 Capturing Frame...
+                        📸 Capturing ESP32-CAM Frame...
                       </div>
                     </div>
                   )}
@@ -508,6 +570,7 @@ const PredictionPage = () => {
             </div>
 
             <div className="p-6 border-t">
+              {/* File input */}
               <input
                 type="file"
                 accept="image/*"
@@ -520,12 +583,13 @@ const PredictionPage = () => {
                 <p className="text-sm text-blue-700">
                   <strong>💡 Tips:</strong>
                   {isRealTimeMode
-                    ? " Kamera real-time gunakan resolusi HD (1280x720) dan pencahayaan yang memadai untuk hasil yang optimal. Ketika objek terdeteksi, Anda dapat menyimpan capture untuk analisis detail."
+                    ? " ESP32-CAM real-time menggunakan stream external. Pastikan pencahayaan yang memadai dan koneksi WiFi stabil untuk hasil optimal. Aktifkan 'Live Detection' untuk deteksi real-time, lalu simpan capture ketika objek terdeteksi."
                     : " Gunakan gambar dengan rasio yang sesuai untuk hasil terbaik."}
                 </p>
               </div>
 
               <div className="flex gap-2">
+                {/* Upload button */}
                 <Button
                   onClick={handleFileInputClick}
                   className="flex-1"
@@ -537,6 +601,7 @@ const PredictionPage = () => {
                     ? "Pilih Gambar Baru"
                     : "Pilih Gambar"}
                 </Button>
+
                 {currentDetection && !isRealTimeMode && (
                   <Button
                     onClick={handleReset}
@@ -566,10 +631,24 @@ const PredictionPage = () => {
                   {resetting
                     ? "Mereset..."
                     : capturingFrame
-                    ? "Menyimpan capture..."
+                    ? "Menyimpan ESP32-CAM capture..."
                     : isRealTimeMode
-                    ? "Mode Real-time"
+                    ? detectionEnabled
+                      ? "Live Detection Active"
+                      : "ESP32-CAM Stream Ready"
                     : getStatusText()}
+                </span>
+              </p>
+
+              {/* Show ESP32-CAM source */}
+              <p>
+                <strong>Sumber:</strong>{" "}
+                <span
+                  className={`font-semibold ${
+                    esp32Connected ? "text-blue-600" : "text-red-600"
+                  }`}>
+                  {isRealTimeMode ? `ESP32-CAM (${esp32IP})` : "Upload Gambar"}
+                  {isRealTimeMode && (esp32Connected ? " ✓" : " ✗")}
                 </span>
               </p>
 
@@ -610,26 +689,36 @@ const PredictionPage = () => {
               ) : isRealTimeMode && liveDetections.length > 0 ? (
                 <div>
                   <p className="text-sm text-blue-600 mb-2">
-                    Real-time deteksi:
+                    ESP32-CAM real-time deteksi:
                   </p>
                   <ul className="list-disc list-inside text-text-light space-y-1">
                     {liveDetections.map((detection, index) => (
                       <li key={index}>
-                        {detection.label}: {Math.round(detection.score * 100)}%
+                        {detection.label}:{" "}
+                        {Math.round(detection.confidence * 100)}%
                       </li>
                     ))}
                   </ul>
+
+                  {lastDetectionTime && (
+                    <p className="text-xs text-blue-500 mt-2">
+                      Terakhir update: {lastDetectionTime.toLocaleTimeString()}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-text-light">
                   {isRealTimeMode
-                    ? "Belum ada deteksi"
+                    ? detectionEnabled
+                      ? "Menunggu deteksi dari ESP32-CAM..."
+                      : "Aktifkan 'Live Detection' untuk deteksi real-time"
                     : "Pilih gambar untuk deteksi"}
                 </p>
               )}
             </div>
 
             <div className="space-y-2 mt-6">
+              {/* Prediction buttons for uploaded images */}
               {currentDetection?.status === "uploaded" && !isRealTimeMode && (
                 <Button
                   onClick={handleDetection}
@@ -658,10 +747,28 @@ const PredictionPage = () => {
                 </Button>
               )}
 
-              {/* 👈 Tombol Save Capture di panel info juga */}
+              {/* ESP32-CAM real-time controls */}
               {isRealTimeMode && !resetting && (
                 <div className="space-y-2">
-                  {liveDetections.length > 0 && (
+                  {/* Live Detection Toggle */}
+                  <Button
+                    onClick={toggleLiveDetection}
+                    className="w-full"
+                    variant={detectionEnabled ? "success" : "outline"}
+                    type="button"
+                    disabled={!esp32Connected}>
+                    {detectionEnabled ? (
+                      <WifiOff size={18} />
+                    ) : (
+                      <Wifi size={18} />
+                    )}
+                    {detectionEnabled
+                      ? "Stop Live Detection"
+                      : "Start Live Detection"}
+                  </Button>
+
+                  {/* Save Capture */}
+                  {liveDetections.length > 0 && esp32Connected && (
                     <Button
                       onClick={handleSaveCapture}
                       className="w-full"
@@ -669,19 +776,29 @@ const PredictionPage = () => {
                       type="button"
                       disabled={capturingFrame}>
                       <Camera size={18} />
-                      {capturingFrame ? "Menyimpan..." : "Save Capture"}
+                      {capturingFrame
+                        ? "Menyimpan..."
+                        : "Save ESP32-CAM Capture"}
                     </Button>
                   )}
+
                   <div className="text-center">
                     <p className="text-sm text-text-light">
-                      Mode deteksi real-time aktif
+                      {detectionEnabled
+                        ? "Mode deteksi real-time ESP32-CAM aktif"
+                        : "Mode stream ESP32-CAM"}
                     </p>
                     <p className="text-xs text-text-light mt-1">
-                      Resolusi HD: 1280x720 (16:9)
+                      ESP32-CAM Stream: {esp32IP}:81
                     </p>
-                    {liveDetections.length > 0 && (
+                    {liveDetections.length > 0 && esp32Connected && (
                       <p className="text-xs text-green-600 mt-1">
-                        ✓ Siap untuk capture
+                        ✓ Siap untuk capture ESP32-CAM
+                      </p>
+                    )}
+                    {!esp32Connected && (
+                      <p className="text-xs text-red-600 mt-1">
+                        ✗ ESP32-CAM tidak terhubung
                       </p>
                     )}
                   </div>

@@ -1,11 +1,14 @@
 import os
 import time
+import cv2
+import numpy as np
 from flask import Blueprint, jsonify, current_app, send_file, request
+from PIL import Image
+import io
+import base64
 from ..config.database import db
 from ..models.detection import Detection
 from ..utils.yolo_detector import YOLODetector
-from PIL import Image
-import io
 
 detection_bp = Blueprint('detection', __name__)
 
@@ -13,6 +16,134 @@ detection_bp = Blueprint('detection', __name__)
 model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'best.pt')
 detector = YOLODetector(model_path)
 
+# Global variable to store latest detection results for live stream
+latest_detection_results = {
+    'timestamp': 0,
+    'detections': [],
+    'processed_image': None,
+    'object_count': 0
+}
+
+@detection_bp.route('/detect/live-stream', methods=['POST'])
+def detect_live_stream():
+    """Handle live stream detection from ESP32-CAM"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No image file selected'}), 400
+
+        # Read image
+        image_bytes = file.read()
+        image = Image.open(io.BytesIO(image_bytes))
+        
+        # Convert PIL image to OpenCV format
+        cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        
+        # Perform detection
+        start_time = time.time()
+        results = detector.detect_image(image)
+        processing_time = time.time() - start_time
+        
+        # Draw bounding boxes on image
+        annotated_image = cv_image.copy()
+        detection_count = 0
+        
+        for detection in results.get('detections', []):
+            x, y, w, h = int(detection['x']), int(detection['y']), int(detection['width']), int(detection['height'])
+            label = detection['label']
+            confidence = detection['confidence']
+            
+            # Draw bounding box
+            cv2.rectangle(annotated_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            
+            # Draw label
+            label_text = f"{label}: {confidence:.2f}"
+            label_size = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+            cv2.rectangle(annotated_image, (x, y - label_size[1] - 10), 
+                         (x + label_size[0], y), (0, 255, 0), -1)
+            cv2.putText(annotated_image, label_text, (x, y - 5), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+            
+            detection_count += 1
+        
+        # Update global detection results
+        global latest_detection_results
+        latest_detection_results = {
+            'timestamp': time.time(),
+            'detections': results.get('detections', []),
+            'processed_image': annotated_image,
+            'object_count': detection_count,
+            'processing_time': processing_time
+        }
+        
+        # Convert annotated image to base64 for response
+        _, buffer = cv2.imencode('.jpg', annotated_image)
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return jsonify({
+            'success': True,
+            'detections': results.get('detections', []),
+            'object_count': detection_count,
+            'processing_time': processing_time,
+            'annotated_image': img_base64,
+            'timestamp': time.time()
+        }), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Detection failed: {str(e)}'}), 500
+
+@detection_bp.route('/live-stream/latest', methods=['GET'])
+def get_latest_detection():
+    """Get latest detection results for live stream"""
+    try:
+        global latest_detection_results
+        
+        if latest_detection_results['timestamp'] == 0:
+            return jsonify({
+                'success': False,
+                'message': 'No detection results available'
+            }), 404
+        
+        # Convert processed image to base64 if available
+        img_base64 = None
+        if latest_detection_results['processed_image'] is not None:
+            _, buffer = cv2.imencode('.jpg', latest_detection_results['processed_image'])
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return jsonify({
+            'success': True,
+            'timestamp': latest_detection_results['timestamp'],
+            'detections': latest_detection_results['detections'],
+            'object_count': latest_detection_results['object_count'],
+            'annotated_image': img_base64
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to get latest detection: {str(e)}'}), 500
+
+@detection_bp.route('/live-stream/processed-image', methods=['GET'])
+def get_processed_image():
+    """Get the latest processed image with bounding boxes"""
+    try:
+        global latest_detection_results
+        
+        if latest_detection_results['processed_image'] is None:
+            return jsonify({'error': 'No processed image available'}), 404
+        
+        # Convert OpenCV image to bytes
+        _, buffer = cv2.imencode('.jpg', latest_detection_results['processed_image'])
+        image_bytes = io.BytesIO(buffer.tobytes())
+        image_bytes.seek(0)
+        
+        return send_file(image_bytes, mimetype='image/jpeg')
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get processed image: {str(e)}'}), 500
+
+# Keep all existing endpoints...
 @detection_bp.route('/detect/<int:detection_id>', methods=['POST'])
 def detect_objects(detection_id):
     try:
@@ -151,10 +282,10 @@ def detect_from_frame():
         image_bytes = file.read()
         image = Image.open(io.BytesIO(image_bytes))
 
-        # Jalankan deteksi menggunakan YOLO
+        # Run detection using YOLO
         results = detector.detect_image(image)
 
-        # Format respons bounding box
+        # Format bounding box response
         response_boxes = []
         for box in results.get('detections', []):
             response_boxes.append({
@@ -173,3 +304,12 @@ def detect_from_frame():
 
     except Exception as e:
         return jsonify({'success': False, 'error': f'Detection failed: {str(e)}'}), 500
+
+@detection_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for ESP32-CAM"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'Detection service is running',
+        'timestamp': time.time()
+    }), 200
