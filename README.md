@@ -1,217 +1,117 @@
-# 🔍Alur Kerja Sistem Monitoring Deteksi Tingkat Roasting Biji Kopi (YOLOv8 + Flask + React + PostgreSQL + ESP32-CAM + OV5640-AF)
----
+# Coffee Bean Detection System
 
-# 🔧 **Spesifikasi Sistem:**
+Sistem deteksi roasting biji kopi secara real-time menggunakan teknologi YOLOv8 dengan integrasi ESP32-CAM untuk live stream detection.
 
-* **Model deteksi:** YOLOv8 (klasifikasi + bounding box)
-* **Backend:** Flask (Python)
-* **Frontend:** React.js (web interface)
-* **Database:** PostgreSQL
-* **Kamera & Pengendali:** ESP32-CAM dengan modul kamera OV5640-AF (hanya mengambil dan mengirim gambar)
-* **Tingkat Roasting:** Green Bean, Light Roast, Medium Roast, dan Dark Roast.
+## 🌟 Main Feature
 
----
-
-# 🧭 **Alur Kerja Sistem Secara Rinci:**
+- Real-time Detection: Deteksi tingkat roasting biji kopi secara langsung
+- ESP32-CAM Integration: Live streaming dan capture dari ESP32-CAM
+- YOLOv8 Model: Menggunakan model AI terdepan untuk deteksi objek
+- Web Dashboard: Interface web yang responsif dan user-friendly
+- Database Storage: Penyimpanan hasil deteksi dengan metadata lengkap
+- Multiple Capture Methods: Berbagai cara capture gambar dari live stream
 
 ---
 
-## ✅ **1. Akuisisi Gambar dari Kamera**
+## Systems Architecture
 
-### 📍 Komponen:
-
-* ESP32-CAM yang mendukung OV5640-AF (DVP Interface)
-* Modul kamera OV5640-AF (Auto-Focus, 5MP) 
-* Terhubung ke Wi-Fi
-
-### 📦 Proses:
-
-1. ESP32 mengaktifkan kamera OV5640-AF dan mengambil foto dalam format JPEG
-2. Gambar dikirim langsung ke backend Flask menggunakan HTTP POST multipart/form-data
-
-### 📁 Contoh Format Data:
-
-```http
-POST /upload-image HTTP/1.1
-Content-Type: multipart/form-data
-Body:
-{
-  "image": <file.jpg>
-}
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   ESP32-CAM     │───▶│  Flask Backend  │───▶│  React Frontend │
+│  (Hardware)     │    │   (Python)      │    │   (Vite + JS)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+        │                        │                        │
+        │                        ▼                        │
+        │              ┌─────────────────┐                │
+        │              │  YOLOv8 Model   │                │
+        │              │  (Detection)    │                │
+        │              └─────────────────┘                │
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Live Stream    │    │   Database      │    │  User Interface │
+│  Video Feed     │    │  (SQLite)       │    │  (Dashboard)    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ---
 
-## ✅ **2. Backend Flask Menerima & Menyimpan Gambar**
+# Web Skripsi Setup & Installation Guide
 
-### 📦 Proses:
+This project consists of two main parts:
 
-1. Gambar dari ESP32 diterima melalui endpoint `POST /upload-image`
+- **Backend:** Flask (Python)
+- **Frontend:** React with Vite & Tailwind CSS
 
-2. File gambar disimpan sementara di direktori lokal, misal:
+## 📦Prerequisites
 
-   ```
-   uploads/2025-05-31_10-15-00.jpg
-   ```
+- [Python 3.13+](https://www.python.org/downloads/)
+- [Node.js & npm](https://nodejs.org/)
+- [Git](https://git-scm.com/)
 
-3. Backend mencatat waktu (`timestamp`) saat gambar diterima
+---
 
-### 📁 Contoh kode:
+## 1. Clone the Repository
 
-```python
-file = request.files['image']
-filename = f"uploads/{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-file.save(filename)
+```bash
+git clone <repository-url>
+cd web-skripsi
 ```
 
 ---
 
-## ✅ **3. YOLOv8 Mendeteksi Roasting di Gambar**
+## 2. Backend Setup (Flask)
 
-### 📦 Proses:
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-1. Flask memuat model YOLOv8 (`model_roasting.pt`) saat server dijalankan
+### Run Flask Server
 
-2. Gambar yang diterima dikirim ke model:
+```bash
+flask run
+```
 
-   ```python
-   results = model(filename)  # filename = path to image
-   ```
+or
 
-3. Model YOLOv8 mengembalikan hasil deteksi: bounding box, kelas roasting, confidence:
-
-   * Koordinat bounding box (`x1, y1, x2, y2`)
-   * Kelas roasting (misal: `green_bean`, `medium_roast`)
-   * Confidence (tingkat keyakinan)
-
-### 🧾 Contoh output YOLOv8:
-
-```json
-[
-  {
-    "roast_class": "medium_roast",
-    "confidence": 0.89,
-    "box": [100, 120, 180, 200]
-  },
-  {
-    "roast_class": "dark_roast",
-    "confidence": 0.91,
-    "box": [210, 130, 270, 190]
-  }
-]
+```
+python run.py
 ```
 
 ---
 
-## ✅ **4. Gambar Dianotasi (Bounding Box + Label)**
+## 3. Frontend Setup (React, Vite, Tailwind)
 
-### 📦 Proses:
+```bash
+cd ../frontend
+npm install
+```
 
-* Gambar diberi bounding box dan label (`roast_class + confidence`) menggunakan OpenCV
-* Hasil anotasi disimpan sebagai gambar baru:
+### Run Development Server
 
-  ```
-  results/2025-05-31_10-15-00_annotated.jpg
-  ```
-
-### 📁 Contoh kode:
-
-```python
-cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
-cv2.putText(img, "medium_roast 89%", (x1, y1-10), ...)
-cv2.imwrite("results/filename_annotated.jpg", img)
+```bash
+npm run dev
 ```
 
 ---
 
-## ✅ **5. Data Disimpan ke Database PostgreSQL**
+## 4. Access the Application
 
-### 📦 Data yang disimpan:
-
-* Path gambar asli
-* Path gambar hasil anotasi
-* Timestamp
-* JSON list deteksi:
-
-  * `roast_class`
-  * `confidence`
-  * `bounding_box`
-
-### 🧾 Contoh struktur tabel:
-
-**Table: detection\_results**
-
-| id | image\_path    | result\_image  | timestamp           | detections (JSON)             |
-| -- | -------------- | -------------- | ------------------- | ----------------------------- |
-| 1  | uploads/xx.jpg | results/xx.jpg | 2025-05-31 10:15:00 | \[{"roast\_class": ..., ...}] |
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- Backend API: [http://localhost:5000](http://localhost:5000)
 
 ---
 
-## ✅ **6. Frontend React.js Mengambil & Menampilkan Hasil**
+## Notes
 
-### 📦 Proses:
-
-1. React melakukan **fetch** ke endpoint Flask:
-
-   * `/api/latest-result`
-   * atau polling tiap 2–5 detik
-
-2. Backend mengirim response:
-
-```json
-{
-  "image_url": "http://server/results/2025-05-31_10-15-00_annotated.jpg",
-  "timestamp": "2025-05-31T10:15:00",
-  "detections": [
-    {
-      "roast_class": "medium_roast",
-      "confidence": 0.89,
-      "box": [100, 120, 180, 200]
-    },
-    ...
-  ]
-}
-```
-
-3. React.js menampilkan:
-
-   * Gambar hasil deteksi (sudah ada bounding box)
-   * Informasi:
-
-     * Waktu deteksi
-     * Jumlah biji kopi per kelas
-     * Confidence masing-masing kelas
+- Adjust the API endpoint in the frontend if needed.
+- For production, refer to deployment guides for Flask and Vite.
 
 ---
 
-## ✅ **7. Tampilan Web (Frontend)**
+## 👨‍💻 Author
 
-### 🖥️ Contoh elemen UI di React:
-
-```
-🕒 Waktu Deteksi: 2025-05-31 10:15:00
-📦 Jumlah Biji: 3
-- Green Bean: 1 (92%)
-- Medium Roast: 1 (89%)
-- Dark Roast: 1 (91%)
-
-[ Gambar hasil deteksi dengan bounding box ]
-```
-
-### 🖼️ Gambar:
-
-```jsx
-<img src="http://server/results/2025-05-31_10-15-00_annotated.jpg" alt="hasil deteksi" />
-```
-
----
-
-## ✅ RANGKUMAN ALUR SEDERHANA
-
-1. **ESP32-CAM + OV5640-AF** → ambil gambar → kirim ke Flask 
-2. **Flask** → terima gambar → proses dengan YOLOv8
-3. **YOLOv8** → hasil deteksi (kelas + box + confidence)
-4. **Flask** → anotasi gambar + simpan hasil ke DB
-5. **React.js** → ambil data → tampilkan gambar + info deteksi
-
----
+Syauqi Nur Muhammad and M. Hilmy Irfan Maulana
