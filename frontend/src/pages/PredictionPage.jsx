@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Loader from "../components/ui/Loader";
-import { Save, Upload, Play, X, Camera, Wifi, WifiOff } from "lucide-react";
+import { Save, Upload, Play, X, Camera, Wifi, WifiOff, Download } from "lucide-react";
 import apiService from "../services/api";
 
 const PredictionPage = () => {
@@ -119,7 +119,7 @@ const PredictionPage = () => {
     }
   };
 
-  // Capture frame and save to database
+  // Enhanced capture with multiple strategies
   const handleSaveCapture = async () => {
     if (!esp32Connected || !isRealTimeMode) {
       setError("ESP32-CAM not available for capture");
@@ -130,26 +130,146 @@ const PredictionPage = () => {
       setCapturingFrame(true);
       setError(null);
 
-      // Capture current frame by making a request to ESP32-CAM
-      const captureResponse = await fetch(`http://${esp32IP}/capture`);
-      const result = await captureResponse.json();
+      let captureResult = null;
+      let captureMethod = "unknown";
 
-      if (result.success) {
-        alert(
-          `Frame captured successfully! Objects detected: ${
-            result.detections || 0
-          }`
-        );
+      // Strategy 1: Capture from live stream buffer if detection is enabled
+      if (detectionEnabled && liveDetections.length > 0) {
+        try {
+          captureResult = await apiService.captureLiveStream();
+          captureMethod = "live-stream";
+          console.log("✅ Live stream capture successful");
+        } catch (error) {
+          console.warn("❌ Live stream capture failed:", error.message);
+        }
+      }
 
-        // Refresh detections list
-        // You might want to call a function to refresh the reports page
+      // Strategy 2: Direct capture from ESP32-CAM if live stream failed
+      if (!captureResult) {
+        try {
+          captureResult = await apiService.captureEsp32Direct(esp32IP);
+          captureMethod = "esp32-direct";
+          console.log("✅ ESP32-CAM direct capture successful");
+        } catch (error) {
+          console.warn("❌ ESP32-CAM direct capture failed:", error.message);
+        }
+      }
+
+      // Strategy 3: Fallback to ESP32-CAM capture endpoint
+      if (!captureResult) {
+        try {
+          captureResult = await apiService.captureEsp32Frame(esp32IP);
+          captureMethod = "esp32-frame";
+          console.log("✅ ESP32-CAM frame capture successful");
+        } catch (error) {
+          console.warn("❌ ESP32-CAM frame capture failed:", error.message);
+        }
+      }
+
+      // Process result
+      if (captureResult && captureResult.success) {
+        const detectionCount = captureResult.detections_count || 0;
+        const processingTime = captureResult.processing_time || 0;
+
+        // Show success message
+        const successMessage = `
+          📸 Capture berhasil! 
+          
+          📊 Metode: ${captureMethod}
+          🎯 Objek terdeteksi: ${detectionCount}
+          ⏱️ Waktu proses: ${processingTime.toFixed(2)}s
+          💾 ID Database: #${captureResult.detection_id || "N/A"}
+          
+          Gambar telah disimpan di database dan dapat dilihat di halaman Reports.
+        `;
+
+        alert(successMessage);
+
+        // Update UI
+        if (captureResult.detections && captureResult.detections.length > 0) {
+          setLiveDetections(captureResult.detections);
+        }
+
+        // Optional: Show download buttons
+        if (captureResult.detection_id) {
+          setError(null);
+          console.log("Capture saved with ID:", captureResult.detection_id);
+        }
       } else {
-        setError("Failed to capture frame");
+        throw new Error(captureResult?.error || "All capture methods failed");
       }
     } catch (error) {
-      setError(`Capture failed: ${error.message}`);
+      console.error("❌ Capture completely failed:", error);
+      setError(`Capture gagal: ${error.message}`);
+
+      // Show detailed error to user
+      alert(`
+        ❌ Capture gagal!
+        
+        Error: ${error.message}
+        
+        Troubleshooting:
+        1. Pastikan ESP32-CAM terhubung (IP: ${esp32IP})
+        2. Pastikan backend server berjalan
+        3. Coba refresh halaman dan ulangi
+        4. Periksa koneksi WiFi
+      `);
     } finally {
       setCapturingFrame(false);
+    }
+  };
+
+  // Canvas capture for fallback
+  const captureCanvasFrame = () => {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+
+    if (!canvas || !img) return null;
+
+    const ctx = canvas.getContext("2d");
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+
+    // Draw image
+    ctx.drawImage(img, 0, 0);
+
+    // Draw bounding boxes if any
+    if (liveDetections.length > 0) {
+      liveDetections.forEach((detection) => {
+        const { x, y, width, height, label, confidence } = detection;
+
+        // Draw bounding box
+        ctx.strokeStyle = "#00ff00";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+
+        // Draw label
+        ctx.fillStyle = "#00ff00";
+        ctx.fillRect(x, y - 20, 120, 20);
+        ctx.fillStyle = "#000000";
+        ctx.font = "12px Arial";
+        ctx.fillText(
+          `${label}: ${Math.round(confidence * 100)}%`,
+          x + 2,
+          y - 6
+        );
+      });
+    }
+
+    return canvas.toDataURL("image/jpeg", 0.8);
+  };
+
+  // Download captured image
+  const downloadCapturedImage = () => {
+    const dataUrl = captureCanvasFrame();
+    if (dataUrl) {
+      const link = document.createElement("a");
+      link.download = `esp32-capture-${new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/:/g, "-")}.jpg`;
+      link.href = dataUrl;
+      link.click();
     }
   };
 
@@ -396,19 +516,29 @@ const PredictionPage = () => {
             </Button>
           )}
 
-          {/* Save Capture button for ESP32-CAM */}
+          {/* Enhanced Save Capture button */}
           {isRealTimeMode && (
             <Button
               onClick={handleSaveCapture}
               variant="success"
               type="button"
-              disabled={
-                capturingFrame || liveDetections.length === 0 || !esp32Connected
-              }>
+              disabled={capturingFrame || !esp32Connected}>
               <Camera size={18} />
-              {capturingFrame ? "Menyimpan..." : "Save Capture"}
+              {capturingFrame ? "Capturing..." : "Save Capture"}
             </Button>
           )}
+
+          {/* Download button for canvas capture
+          {isRealTimeMode && streamUrl && (
+            <Button
+              onClick={downloadCapturedImage}
+              variant="outline"
+              type="button"
+              disabled={capturingFrame}>
+              <Download size={18} />
+              Download
+            </Button>
+          )} */}
 
           {currentDetection && (
             <Button
@@ -429,7 +559,7 @@ const PredictionPage = () => {
         </Card>
       )}
 
-      {/* ESP32-CAM status info */}
+      {/* Enhanced status info */}
       <Card className="mb-6 p-4 bg-blue-50 border-blue-200">
         <div className="flex justify-between items-center">
           <div>
@@ -461,19 +591,46 @@ const PredictionPage = () => {
         </div>
       </Card>
 
-      {/* Capture ready info */}
-      {isRealTimeMode && liveDetections.length > 0 && esp32Connected && (
+      {/* Enhanced capture ready info */}
+      {isRealTimeMode && esp32Connected && (
         <Card className="mb-6 p-4 bg-green-50 border-green-200">
-          <p className="text-green-700">
-            <strong>📸 Capture Ready:</strong> Terdeteksi{" "}
-            {liveDetections.length} objek. Klik "Save Capture" untuk menyimpan
-            frame dengan deteksi.
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-green-700">
+                <strong>📸 Capture Ready:</strong>
+                {liveDetections.length > 0
+                  ? ` Terdeteksi ${liveDetections.length} objek`
+                  : " Stream aktif"}
+              </p>
+              <p className="text-green-600 text-sm">
+                Klik "Save Capture" untuk menyimpan frame ke database
+                {detectionEnabled && " dengan hasil deteksi"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSaveCapture}
+                variant="success"
+                size="sm"
+                disabled={capturingFrame || !esp32Connected}>
+                <Camera size={16} />
+                {capturingFrame ? "Saving..." : "Quick Capture"}
+              </Button>
+              {/* <Button
+                onClick={downloadCapturedImage}
+                variant="outline"
+                size="sm"
+                disabled={!streamUrl}>
+                <Download size={16} />
+                Download
+              </Button> */}
+            </div>
+          </div>
         </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Video Stream Column - Now using ESP32-CAM */}
+        {/* Video Stream Column */}
         <div className="lg:col-span-2">
           <Card className="p-0 overflow-hidden">
             <div className="relative">

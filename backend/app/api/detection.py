@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, current_app, send_file, request
 from PIL import Image
 import io
 import base64
+from datetime import datetime
 from ..config.database import db
 from ..models.detection import Detection
 from ..utils.yolo_detector import YOLODetector
@@ -21,7 +22,8 @@ latest_detection_results = {
     'timestamp': 0,
     'detections': [],
     'processed_image': None,
-    'object_count': 0
+    'object_count': 0,
+    'raw_image': None  # Store raw image for capture
 }
 
 @detection_bp.route('/detect/live-stream', methods=['POST'])
@@ -75,6 +77,7 @@ def detect_live_stream():
             'timestamp': time.time(),
             'detections': results.get('detections', []),
             'processed_image': annotated_image,
+            'raw_image': cv_image,  # Store raw image for capture
             'object_count': detection_count,
             'processing_time': processing_time
         }
@@ -95,6 +98,193 @@ def detect_live_stream():
     except Exception as e:
         return jsonify({'success': False, 'error': f'Detection failed: {str(e)}'}), 500
 
+@detection_bp.route('/capture/live-stream', methods=['POST'])
+def capture_live_stream():
+    """Capture and save current live stream frame with detections"""
+    try:
+        global latest_detection_results
+        
+        if latest_detection_results['timestamp'] == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No live stream data available'
+            }), 400
+        
+        # Get the latest processed image with bounding boxes
+        processed_image = latest_detection_results['processed_image']
+        raw_image = latest_detection_results['raw_image']
+        detections = latest_detection_results['detections']
+        
+        if processed_image is None or raw_image is None:
+            return jsonify({
+                'success': False,
+                'error': 'No image data available for capture'
+            }), 400
+        
+        # Generate unique filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        original_filename = f"esp32_capture_{timestamp}.jpg"
+        result_filename = f"esp32_capture_{timestamp}_result.jpg"
+        
+        # Save paths
+        original_path = os.path.join(current_app.config['UPLOAD_FOLDER'], original_filename)
+        result_path = os.path.join(current_app.config['RESULTS_FOLDER'], result_filename)
+        
+        # Ensure directories exist
+        os.makedirs(os.path.dirname(original_path), exist_ok=True)
+        os.makedirs(os.path.dirname(result_path), exist_ok=True)
+        
+        # Save original image
+        cv2.imwrite(original_path, raw_image)
+        
+        # Save processed image with bounding boxes
+        cv2.imwrite(result_path, processed_image)
+        
+        # Create detection record in database
+        detection_record = Detection(
+            filename=original_filename,
+            original_path=original_path,
+            result_path=result_path,
+            detections_count=len(detections),
+            confidence_scores=[det['confidence'] for det in detections],
+            detection_classes=[det['label'] for det in detections],
+            processing_time=latest_detection_results.get('processing_time', 0),
+            status='completed'
+        )
+        
+        db.session.add(detection_record)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Live stream frame captured and saved successfully',
+            'detection_id': detection_record.id,
+            'detections_count': len(detections),
+            'detections': detections,
+            'original_path': original_path,
+            'result_path': result_path,
+            'timestamp': latest_detection_results['timestamp']
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Capture failed: {str(e)}'
+        }), 500
+
+@detection_bp.route('/capture/esp32-direct', methods=['POST'])
+def capture_esp32_direct():
+    """Capture image directly from ESP32-CAM and process it"""
+    try:
+        # Get ESP32-CAM IP from request
+        data = request.get_json()
+        esp32_ip = data.get('esp32_ip', '172.20.10.2')
+        
+        # Fetch current frame directly from ESP32-CAM
+        import requests
+        
+        # Get frame from ESP32-CAM
+        esp32_url = f"http://{esp32_ip}:81/stream"
+        
+        # Alternative: Get single frame
+        capture_url = f"http://{esp32_ip}/capture-frame"
+        
+        try:
+            response = requests.get(capture_url, timeout=10)
+            if response.status_code == 200:
+                # Process the captured image
+                image_bytes = response.content
+                image = Image.open(io.BytesIO(image_bytes))
+                
+                # Convert to OpenCV format
+                cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                
+                # Perform detection
+                start_time = time.time()
+                results = detector.detect_image(image)
+                processing_time = time.time() - start_time
+                
+                # Draw bounding boxes
+                annotated_image = cv_image.copy()
+                detection_count = 0
+                
+                for detection in results.get('detections', []):
+                    x, y, w, h = int(detection['x']), int(detection['y']), int(detection['width']), int(detection['height'])
+                    label = detection['label']
+                    confidence = detection['confidence']
+                    
+                    # Draw bounding box
+                    cv2.rectangle(annotated_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    
+                    # Draw label
+                    label_text = f"{label}: {confidence:.2f}"
+                    label_size = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+                    cv2.rectangle(annotated_image, (x, y - label_size[1] - 10), 
+                                 (x + label_size[0], y), (0, 255, 0), -1)
+                    cv2.putText(annotated_image, label_text, (x, y - 5), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                    
+                    detection_count += 1
+                
+                # Save images
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                original_filename = f"esp32_direct_{timestamp}.jpg"
+                result_filename = f"esp32_direct_{timestamp}_result.jpg"
+                
+                original_path = os.path.join(current_app.config['UPLOAD_FOLDER'], original_filename)
+                result_path = os.path.join(current_app.config['RESULTS_FOLDER'], result_filename)
+                
+                os.makedirs(os.path.dirname(original_path), exist_ok=True)
+                os.makedirs(os.path.dirname(result_path), exist_ok=True)
+                
+                cv2.imwrite(original_path, cv_image)
+                cv2.imwrite(result_path, annotated_image)
+                
+                # Save to database
+                detection_record = Detection(
+                    filename=original_filename,
+                    original_path=original_path,
+                    result_path=result_path,
+                    detections_count=detection_count,
+                    confidence_scores=[det['confidence'] for det in results.get('detections', [])],
+                    detection_classes=[det['label'] for det in results.get('detections', [])],
+                    processing_time=processing_time,
+                    status='completed'
+                )
+                
+                db.session.add(detection_record)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'ESP32-CAM frame captured and processed successfully',
+                    'detection_id': detection_record.id,
+                    'detections_count': detection_count,
+                    'detections': results.get('detections', []),
+                    'processing_time': processing_time
+                }), 200
+                
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to capture from ESP32-CAM: {response.status_code}'
+                }), 400
+                
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                'success': False,
+                'error': f'ESP32-CAM connection failed: {str(e)}'
+            }), 500
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Direct capture failed: {str(e)}'
+        }), 500
+
+# Keep all existing endpoints...
 @detection_bp.route('/live-stream/latest', methods=['GET'])
 def get_latest_detection():
     """Get latest detection results for live stream"""

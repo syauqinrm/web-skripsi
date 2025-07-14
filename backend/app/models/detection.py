@@ -18,6 +18,8 @@ class Detection(db.Model):
     detection_classes = db.Column(db.JSON, nullable=True)
     processing_time = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(50), default='uploaded')  # uploaded, processing, completed, failed
+    capture_method = db.Column(db.String(50), default='upload')  # New field
+    esp32_ip = db.Column(db.String(50), nullable=True)  # New field
     created_at = db.Column(db.DateTime, default=lambda: datetime.utcnow().replace(tzinfo=pytz.utc))  # Set to UTC explicitly
     updated_at = db.Column(db.DateTime, default=lambda: datetime.utcnow().replace(tzinfo=pytz.utc), onupdate=datetime.utcnow)
 
@@ -36,8 +38,9 @@ class Detection(db.Model):
             'detection_classes': self.detection_classes,
             'processing_time': self.processing_time,
             'status': self.status,
+            'capture_method': self.capture_method,
+            'esp32_ip': self.esp32_ip,
             # Menggunakan strftime untuk format 24 jam
             'created_at': created_at_jakarta.strftime('%Y-%m-%d %H:%M:%S') if created_at_jakarta else None,
             'updated_at': updated_at_jakarta.strftime('%Y-%m-%d %H:%M:%S') if updated_at_jakarta else None
         }
-        

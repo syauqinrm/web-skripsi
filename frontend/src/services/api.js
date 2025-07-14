@@ -185,6 +185,62 @@ class ApiService {
   getEsp32DetectionStreamUrl(esp32IP) {
     return `http://${esp32IP}:81/detected-stream`;
   }
+
+  // Capture live stream frame
+  async captureLiveStream() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/capture/live-stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`Live stream capture failed: ${error.message}`);
+    }
+  }
+
+  // Capture directly from ESP32-CAM
+  async captureEsp32Direct(esp32IP) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/capture/esp32-direct`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ esp32_ip: esp32IP }),
+      });
+
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`ESP32-CAM direct capture failed: ${error.message}`);
+    }
+  }
+
+  // Enhanced ESP32-CAM capture with better error handling
+  async captureEsp32Frame(esp32IP) {
+    try {
+      const response = await fetch(`http://${esp32IP}/capture`, {
+        method: "GET",
+        timeout: 10000, // 10 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`ESP32-CAM response: ${response.status}`);
+      }
+
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`ESP32-CAM capture failed: ${error.message}`);
+    }
+  }
+
+  // Get single frame from ESP32-CAM
+  getEsp32CaptureUrl(esp32IP) {
+    return `http://${esp32IP}/capture-frame`;
+  }
 }
 
 export default new ApiService();

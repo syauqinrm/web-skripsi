@@ -589,13 +589,37 @@ static esp_err_t detection_status_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-// 👈 Other handlers (index, capture, test_backend, status, cmd) remain the same...
-static esp_err_t index_handler(httpd_req_t *req) {
-    httpd_resp_set_type(req, "text/html");
+// 👈 NEW: Single frame capture handler
+static esp_err_t capture_frame_handler(httpd_req_t *req) {
+    camera_fb_t * fb = NULL;
+    esp_err_t res = ESP_OK;
+    
+    httpd_resp_set_type(req, "image/jpeg");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
+    httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.jpg");
+    
+    fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Camera capture failed");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Camera capture failed");
+        return ESP_FAIL;
+    }
+    
+    Serial.printf("Captured frame: %dx%d, %d bytes\n", fb->width, fb->height, fb->len);
+    
+    // Send the JPEG directly
+    res = httpd_resp_send(req, (const char *)fb->buf, fb->len);
+    
+    esp_camera_fb_return(fb);
+    
+    if (res != ESP_OK) {
+        Serial.printf("Failed to send frame: %s\n", esp_err_to_name(res));
+    }
+    
+    return res;
 }
 
+// 👈 Modified capture handler with better error handling
 static esp_err_t capture_handler(httpd_req_t *req) {
     camera_fb_t * fb = NULL;
     esp_err_t res = ESP_OK;
@@ -606,25 +630,48 @@ static esp_err_t capture_handler(httpd_req_t *req) {
     fb = esp_camera_fb_get();
     if (!fb) {
         Serial.println("Camera capture failed");
-        httpd_resp_send(req, "{\"success\":false,\"error\":\"Camera capture failed\"}", -1);
+        const char* error_resp = "{\"success\":false,\"error\":\"Camera capture failed\"}";
+        httpd_resp_send(req, error_resp, strlen(error_resp));
         return ESP_FAIL;
     }
     
     Serial.printf("Captured image: %dx%d, %d bytes\n", fb->width, fb->height, fb->len);
     
     // Send to backend for detection and storage
-    bool backend_success = sendFrameToBackend(fb);
-    esp_camera_fb_return(fb);
+    bool backend_success = false;
+    int detection_count = 0;
     
-    if (backend_success) {
-        const char* resp = "{\"success\":true,\"message\":\"Photo captured and sent to backend\",\"detections\":0}";
-        httpd_resp_send(req, resp, strlen(resp));
-    } else {
-        const char* resp = "{\"success\":false,\"message\":\"Photo captured but backend failed\",\"detections\":0}";
-        httpd_resp_send(req, resp, strlen(resp));
+    if (detection_enabled) {
+        backend_success = sendFrameToBackend(fb);
+        if (backend_success) {
+            // In a real implementation, you'd get the detection count from backend response
+            detection_count = 1; // Placeholder
+        }
     }
     
+    esp_camera_fb_return(fb);
+    
+    // Create JSON response
+    StaticJsonDocument<200> doc;
+    doc["success"] = true;
+    doc["message"] = detection_enabled ? "Photo captured and sent to backend" : "Photo captured";
+    doc["detections"] = detection_count;
+    doc["backend_processed"] = backend_success;
+    doc["timestamp"] = millis();
+    
+    String response;
+    serializeJson(doc, response);
+    
+    httpd_resp_send(req, response.c_str(), response.length());
+    
     return ESP_OK;
+}
+
+// 👈 Other handlers (index, test_backend, status, cmd) remain the same...
+static esp_err_t index_handler(httpd_req_t *req) {
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
 }
 
 static esp_err_t test_backend_handler(httpd_req_t *req) {
@@ -671,7 +718,7 @@ static esp_err_t status_handler(httpd_req_t *req) {
 void startCameraServer() {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
-    config.max_uri_handlers = 20;
+    config.max_uri_handlers = 25; // Increase handler count
     config.stack_size = 8192;
     
     // Main server (port 80)
@@ -724,6 +771,13 @@ void startCameraServer() {
         .user_ctx = NULL
     };
 
+    httpd_uri_t capture_frame_uri = {
+        .uri = "/capture-frame",
+        .method = HTTP_GET,
+        .handler = capture_frame_handler,
+        .user_ctx = NULL
+    };
+    
     if (httpd_start(&camera_httpd, &config) == ESP_OK) {
         httpd_register_uri_handler(camera_httpd, &index_uri);
         httpd_register_uri_handler(camera_httpd, &capture_uri);
@@ -732,6 +786,7 @@ void startCameraServer() {
         httpd_register_uri_handler(camera_httpd, &enable_detection_uri);
         httpd_register_uri_handler(camera_httpd, &disable_detection_uri);
         httpd_register_uri_handler(camera_httpd, &detection_status_uri);
+        httpd_register_uri_handler(camera_httpd, &capture_frame_uri);
         Serial.println("Camera HTTP server started on port 80");
     }
     

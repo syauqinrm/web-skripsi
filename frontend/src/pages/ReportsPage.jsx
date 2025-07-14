@@ -5,7 +5,7 @@ import Loader from "../components/ui/Loader";
 import Modal from "../components/ui/Modal"; // 👈 Import Modal
 import { useDetections } from "../hooks/useApi";
 import apiService from "../services/api";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, Search, ZoomIn } from "lucide-react";
 
 const ReportsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -228,8 +228,8 @@ const ReportsPage = () => {
                     }
                     variant="outline"
                     size="sm">
-                    <Download size={16} />
-                    Download
+                    <ZoomIn size={16} />
+                    Zoom In
                   </Button>
                 </div>
                 <img
@@ -253,8 +253,8 @@ const ReportsPage = () => {
                       }
                       variant="outline"
                       size="sm">
-                      <Download size={16} />
-                      Download
+                      <ZoomIn size={16} />
+                      Zoom In
                     </Button>
                   </div>
                   <img
