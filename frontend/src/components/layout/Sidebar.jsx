@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   ScanLine,
@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
+
   const navLinkClass = ({ isActive }) =>
     `flex items-center p-4 my-2 rounded-xl transition-all duration-300 text-coffee-cream font-medium transform hover:scale-105 ${
       isActive
@@ -24,23 +26,37 @@ const Sidebar = ({ isOpen, onClose }) => {
     }
   };
 
+  // Handle logo click - navigate to welcome page
+  const handleLogoClick = () => {
+    navigate("/");
+    if (window.innerWidth < 768 && onClose) {
+      onClose();
+    }
+  };
+
   return (
     <aside
-      data-sidebar // Add data attribute for outside click detection
+      data-sidebar
       className={`bg-gradient-to-b from-coffee-dark to-coffee-medium w-64 flex-shrink-0 transition-all duration-300 ease-in-out z-50 shadow-coffee-lg
                  fixed inset-y-0 left-0 md:relative md:translate-x-0
                  ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="p-6 flex flex-col h-full">
         {/* Mobile Close Button */}
         <div className="flex items-center justify-between mb-4 md:hidden">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-3 hover:bg-coffee-cream/10 p-2 rounded-lg transition-colors duration-200"
+            aria-label="Go to welcome page">
             <div className="p-2 bg-gradient-to-br from-coffee-light to-amber-600 rounded-xl shadow-coffee">
               <Coffee className="text-white" size={20} />
             </div>
             <div>
               <h1 className="text-lg font-bold text-coffee-cream">CoVi</h1>
+              <p className="text-coffee-cream/70 text-sm font-medium">
+                Coffee Vision
+              </p>
             </div>
-          </div>
+          </button>
           <button
             onClick={onClose}
             className="p-2 hover:bg-coffee-cream/20 rounded-lg transition-colors duration-200"
@@ -50,7 +66,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Logo Section - Hidden on mobile when close button is shown */}
-        <div className="hidden md:flex items-center justify-center gap-3 mb-10 mt-4 flex-shrink-0">
+        <button
+          onClick={handleLogoClick}
+          className="hidden md:flex items-center justify-center gap-3 mb-10 mt-4 flex-shrink-0 hover:bg-coffee-cream/10 p-3 rounded-2xl transition-colors duration-200"
+          aria-label="Go to welcome page">
           <div className="p-3 bg-gradient-to-br from-coffee-light to-amber-600 rounded-2xl shadow-coffee">
             <Coffee className="text-white" size={28} />
           </div>
@@ -60,7 +79,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               Coffee Vision
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Status Indicator */}
         <div className="mb-8 p-4 bg-coffee-cream/10 backdrop-blur-sm border border-coffee-cream/20 rounded-xl">

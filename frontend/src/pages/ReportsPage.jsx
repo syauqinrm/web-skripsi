@@ -31,6 +31,7 @@ import {
   PieChart,
   Users,
   ChevronRight,
+  ChevronLeft, // Add this import
   Info,
   CircleCheck,
   AlertTriangle,
@@ -67,7 +68,10 @@ const ReportsPage = () => {
     // Confidence score analysis
     const confidenceScores = [];
     validDetections.forEach((detection) => {
-      if (detection.confidence_scores && detection.confidence_scores.length > 0) {
+      if (
+        detection.confidence_scores &&
+        detection.confidence_scores.length > 0
+      ) {
         confidenceScores.push(
           ...detection.confidence_scores.filter(
             (score) => score !== null && score !== undefined && !isNaN(score)
@@ -88,8 +92,10 @@ const ReportsPage = () => {
           confidenceScores.length
         : 0;
 
-    const minConfidence = confidenceScores.length > 0 ? Math.min(...confidenceScores) : 0;
-    const maxConfidence = confidenceScores.length > 0 ? Math.max(...confidenceScores) : 0;
+    const minConfidence =
+      confidenceScores.length > 0 ? Math.min(...confidenceScores) : 0;
+    const maxConfidence =
+      confidenceScores.length > 0 ? Math.max(...confidenceScores) : 0;
 
     // Confidence quality distribution
     const qualityDistribution = {
@@ -102,7 +108,10 @@ const ReportsPage = () => {
     // Class distribution
     const classDistribution = {};
     validDetections.forEach((detection) => {
-      if (detection.detection_classes && detection.detection_classes.length > 0) {
+      if (
+        detection.detection_classes &&
+        detection.detection_classes.length > 0
+      ) {
         detection.detection_classes.forEach((cls) => {
           classDistribution[cls] = (classDistribution[cls] || 0) + 1;
         });
@@ -116,7 +125,8 @@ const ReportsPage = () => {
 
     const avgProcessingTime =
       processingTimes.length > 0
-        ? processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length
+        ? processingTimes.reduce((sum, time) => sum + time, 0) /
+          processingTimes.length
         : 0;
 
     return {
@@ -129,7 +139,8 @@ const ReportsPage = () => {
       classDistribution,
       avgProcessingTime,
       totalConfidenceScores: confidenceScores.length,
-      successRate: detections.length > 0 ? (totalDetections / detections.length) * 100 : 0,
+      successRate:
+        detections.length > 0 ? (totalDetections / detections.length) * 100 : 0,
     };
   }, [detections]);
 
@@ -203,7 +214,8 @@ const ReportsPage = () => {
     const numScore = parseFloat(score);
     if (numScore >= 0.9) return "bg-green-100 text-green-800 border-green-200";
     if (numScore >= 0.7) return "bg-blue-100 text-blue-800 border-blue-200";
-    if (numScore >= 0.5) return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    if (numScore >= 0.5)
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-red-100 text-red-800 border-red-200";
   };
 
@@ -231,7 +243,10 @@ const ReportsPage = () => {
 
   // Helper function untuk menghitung rata-rata confidence per detection
   const getAverageConfidencePerDetection = (detection) => {
-    if (!detection.confidence_scores || detection.confidence_scores.length === 0) {
+    if (
+      !detection.confidence_scores ||
+      detection.confidence_scores.length === 0
+    ) {
       return detection.confidence_score || 0;
     }
 
@@ -241,7 +256,10 @@ const ReportsPage = () => {
 
     if (validScores.length === 0) return 0;
 
-    return validScores.reduce((sum, score) => sum + parseFloat(score), 0) / validScores.length;
+    return (
+      validScores.reduce((sum, score) => sum + parseFloat(score), 0) /
+      validScores.length
+    );
   };
 
   const getStatusIcon = (status) => {
@@ -303,7 +321,9 @@ const ReportsPage = () => {
     },
     {
       title: "Avg Confidence",
-      value: detectionSummary ? formatConfidenceScore(detectionSummary.avgConfidence) : "N/A",
+      value: detectionSummary
+        ? formatConfidenceScore(detectionSummary.avgConfidence)
+        : "N/A",
       icon: Gauge,
       color: "blue-600",
       bgColor: "blue-50",
@@ -346,14 +366,14 @@ const ReportsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8"> {/* Increased from space-y-6 to space-y-8 */}
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-4xl font-bold text-coffee-dark mb-2">
             Reports & Analytics
           </h1>
-          <p className="text-coffee-medium text-lg">
+          <p className="text-coffee-medium text-md">
             Laporan lengkap hasil prediksi dengan confidence score analysis
           </p>
         </div>
@@ -387,412 +407,523 @@ const ReportsPage = () => {
         ))}
       </div>
 
-      {/* Detection Summary Section */}
+      {/* Detection Summary Section - Added more spacing */}
       {detectionSummary && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Overall Summary */}
-          <Card className="lg:col-span-2 p-6 bg-gradient-to-br from-white to-coffee-cream/20 shadow-coffee border-0">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-coffee-dark/10 rounded-xl">
-                <BarChart2 className="w-6 h-6 text-coffee-dark" />
+        <div className="mt-12 mb-12"> {/* Added explicit margin top and bottom */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8"> {/* Increased gap from 6 to 8 */}
+            {/* Overall Summary */}
+            <Card className="lg:col-span-2 p-8 bg-gradient-to-br from-white to-coffee-cream/20 shadow-coffee border-0"> {/* Increased padding from 6 to 8 */}
+              <div className="flex items-center space-x-3 mb-8"> {/* Increased margin bottom from 6 to 8 */}
+                <div className="p-3 bg-coffee-dark/10 rounded-xl">
+                  <BarChart2 className="w-6 h-6 text-coffee-dark" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-coffee-dark">
+                    Detection Summary
+                  </h2>
+                  <p className="text-coffee-medium text-md">
+                    Ringkasan total tingkat deteksi
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-coffee-dark">
-                  Detection Summary
-                </h2>
-                <p className="text-coffee-medium">Ringkasan total tingkat deteksi</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column - Performance Metrics */}
-              <div className="space-y-4">
-                <div className="bg-coffee-cream/30 p-4 rounded-xl">
-                  <h3 className="font-semibold text-coffee-dark mb-3 flex items-center">
-                    <Target className="w-4 h-4 mr-2" />
-                    Performance Metrics
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-coffee-medium">Success Rate:</span>
-                      <span className="font-bold text-green-600">
-                        {detectionSummary.successRate.toFixed(1)}%
-                      </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> {/* Increased gap from 6 to 8 */}
+                {/* Left Column - Performance Metrics */}
+                <div className="space-y-6"> {/* Increased spacing from 4 to 6 */}
+                  <div className="bg-coffee-cream/30 p-6 rounded-xl"> {/* Increased padding from 4 to 6 */}
+                    <h3 className="font-semibold text-coffee-dark mb-4 flex items-center"> {/* Increased margin from 3 to 4 */}
+                      <Target className="w-4 h-4 mr-2" />
+                      Performance Metrics
+                    </h3>
+                    <div className="space-y-4"> {/* Increased spacing from 3 to 4 */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-coffee-medium">Success Rate:</span>
+                        <span className="font-bold text-green-600">
+                          {detectionSummary.successRate.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-coffee-medium">
+                          Avg Processing Time:
+                        </span>
+                        <span className="font-bold text-coffee-dark">
+                          {detectionSummary.avgProcessingTime.toFixed(2)}s
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-coffee-medium">
+                          Objects per Detection:
+                        </span>
+                        <span className="font-bold text-coffee-dark">
+                          {detectionSummary.totalDetections > 0
+                            ? (
+                                detectionSummary.totalObjects /
+                                detectionSummary.totalDetections
+                              ).toFixed(1)
+                            : "0"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-coffee-medium">Avg Processing Time:</span>
-                      <span className="font-bold text-coffee-dark">
-                        {detectionSummary.avgProcessingTime.toFixed(2)}s
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-coffee-medium">Objects per Detection:</span>
-                      <span className="font-bold text-coffee-dark">
-                        {detectionSummary.totalDetections > 0
-                          ? (detectionSummary.totalObjects / detectionSummary.totalDetections).toFixed(1)
-                          : "0"}
-                      </span>
+                  </div>
+
+                  <div className="bg-blue-50 p-6 rounded-xl border border-blue-200"> {/* Increased padding from 4 to 6 */}
+                    <h3 className="font-semibold text-blue-900 mb-4 flex items-center"> {/* Increased margin from 3 to 4 */}
+                      <Gauge className="w-4 h-4 mr-2" />
+                      Confidence Analysis
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Average:</span>
+                        <span className="font-bold text-blue-900">
+                          {formatConfidenceScore(detectionSummary.avgConfidence)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Range:</span>
+                        <span className="font-bold text-blue-900">
+                          {formatConfidenceScore(detectionSummary.minConfidence)}{" "}
+                          -{" "}
+                          {formatConfidenceScore(detectionSummary.maxConfidence)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Total Scores:</span>
+                        <span className="font-bold text-blue-900">
+                          {detectionSummary.totalConfidenceScores}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                  <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
-                    <Gauge className="w-4 h-4 mr-2" />
-                    Confidence Analysis
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-blue-700">Average:</span>
-                      <span className="font-bold text-blue-900">
-                        {formatConfidenceScore(detectionSummary.avgConfidence)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-blue-700">Range:</span>
-                      <span className="font-bold text-blue-900">
-                        {formatConfidenceScore(detectionSummary.minConfidence)} -{" "}
-                        {formatConfidenceScore(detectionSummary.maxConfidence)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-blue-700">Total Scores:</span>
-                      <span className="font-bold text-blue-900">
-                        {detectionSummary.totalConfidenceScores}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Quality Distribution */}
-              <div className="space-y-4">
-                <div className="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-xl border border-green-200">
-                  <h3 className="font-semibold text-green-900 mb-3 flex items-center">
-                    <PieChart className="w-4 h-4 mr-2" />
-                    Quality Distribution
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="text-green-700">Very High (≥90%)</span>
-                      </div>
-                      <span className="font-bold text-green-900">
-                        {detectionSummary.qualityDistribution.veryHigh}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        <span className="text-blue-700">High (70-89%)</span>
-                      </div>
-                      <span className="font-bold text-blue-900">
-                        {detectionSummary.qualityDistribution.high}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                        <span className="text-yellow-700">Medium (50-69%)</span>
-                      </div>
-                      <span className="font-bold text-yellow-900">
-                        {detectionSummary.qualityDistribution.medium}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <span className="text-red-700">{`Low (<50%)`}</span>
-                      </div>
-                      <span className="font-bold text-red-900">
-                        {detectionSummary.qualityDistribution.low}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-coffee-cream/30 p-4 rounded-xl">
-                  <h3 className="font-semibold text-coffee-dark mb-3 flex items-center">
-                    <Database className="w-4 h-4 mr-2" />
-                    Detection Classes
-                  </h3>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {Object.entries(detectionSummary.classDistribution).map(
-                      ([className, count]) => (
-                        <div key={className} className="flex justify-between items-center">
-                          <span className="text-coffee-medium capitalize text-sm">
-                            {className.replace("_", " ")}
-                          </span>
-                          <span className="font-bold text-coffee-dark bg-coffee-cream px-2 py-1 rounded-full text-xs">
-                            {count}
-                          </span>
+                {/* Right Column - Quality Distribution */}
+                <div className="space-y-6"> {/* Increased spacing from 4 to 6 */}
+                  <div className="bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl border border-green-200"> {/* Increased padding from 4 to 6 */}
+                    <h3 className="font-semibold text-green-900 mb-4 flex items-center"> {/* Increased margin from 3 to 4 */}
+                      <PieChart className="w-4 h-4 mr-2" />
+                      Quality Distribution
+                    </h3>
+                    <div className="space-y-4"> {/* Increased spacing from 3 to 4 */}
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <span className="text-green-700">Very High (≥90%)</span>
                         </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Quick Insights */}
-          <Card className="p-6 bg-gradient-to-br from-coffee-dark to-coffee-medium text-white shadow-coffee">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-white/10 rounded-lg">
-                <Info className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-bold">Quick Insights</h3>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-white/10 p-3 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <CircleCheck className="w-4 h-4 text-green-300" />
-                  <span className="font-semibold text-green-100">Model Performance</span>
-                </div>
-                <p className="text-coffee-cream/90 text-sm">
-                  {detectionSummary.avgConfidence >= 0.8
-                    ? "Excellent performance with high confidence scores"
-                    : detectionSummary.avgConfidence >= 0.6
-                    ? "Good performance with reliable detections"
-                    : "Model needs improvement for better accuracy"}
-                </p>
-              </div>
-
-              <div className="bg-white/10 p-3 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Activity className="w-4 h-4 text-blue-300" />
-                  <span className="font-semibold text-blue-100">Detection Rate</span>
-                </div>
-                <p className="text-coffee-cream/90 text-sm">
-                  {detectionSummary.successRate >= 90
-                    ? "Excellent success rate with consistent results"
-                    : detectionSummary.successRate >= 70
-                    ? "Good success rate with room for improvement"
-                    : "Consider optimizing detection parameters"}
-                </p>
-              </div>
-
-              <div className="bg-white/10 p-3 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-300" />
-                  <span className="font-semibold text-yellow-100">Quality Check</span>
-                </div>
-                <p className="text-coffee-cream/90 text-sm">
-                  {detectionSummary.qualityDistribution.veryHigh >= detectionSummary.qualityDistribution.low
-                    ? "High quality detections dominate the results"
-                    : "Consider reviewing low confidence detections"}
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Filters */}
-      {/* <Card className="p-6 bg-gradient-to-r from-coffee-cream/30 to-white shadow-coffee">
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-coffee-medium w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Cari berdasarkan nama file..."
-              className="w-full pl-10 pr-4 py-3 border border-coffee-cream rounded-xl focus:outline-none focus:ring-2 focus:ring-coffee-light focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <select
-              className="px-4 py-3 border border-coffee-cream rounded-xl focus:outline-none focus:ring-2 focus:ring-coffee-light text-coffee-dark"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="all">Semua Status</option>
-              <option value="completed">Completed</option>
-              <option value="uploaded">Uploaded</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-        </div>
-      </Card> */}
-
-      {/* Reports Grid */}
-      {filteredDetections.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDetections.map((detection) => (
-            <Card
-              key={detection.id}
-              className="overflow-hidden cursor-pointer hover:shadow-coffee-lg transition-all duration-300 transform hover:scale-105 border-0 bg-gradient-to-br from-white to-coffee-cream/20"
-              onClick={() => handleCardClick(detection)}>
-              {/* Image Preview */}
-              <div className="relative h-48 bg-coffee-cream/30">
-                <img
-                  src={
-                    detection.result_path
-                      ? apiService.getResultImageUrl(detection.id)
-                      : apiService.getOriginalImageUrl(detection.id)
-                  }
-                  alt={detection.filename}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = "/placeholder-image.jpg";
-                  }}
-                />
-                <div className="absolute top-3 right-3 flex flex-col gap-2">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadge(
-                      detection.status
-                    )}`}>
-                    {detection.status}
-                  </span>
-
-                  {/* Confidence Score Badge */}
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${getConfidenceStyle(
-                      getAverageConfidencePerDetection(detection)
-                    )}`}>
-                    {getConfidenceIcon(getAverageConfidencePerDetection(detection))}
-                    {formatConfidenceScore(getAverageConfidencePerDetection(detection))}
-                  </span>
-                </div>
-
-                {detection.detections_count > 0 && (
-                  <div className="absolute bottom-3 left-3 bg-coffee-dark/80 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    {detection.detections_count} deteksi
-                  </div>
-                )}
-              </div>
-
-              {/* Card Content */}
-              <div className="p-6">
-                <div className="flex items-center space-x-2 mb-3">
-                  {getStatusIcon(detection.status)}
-                  <h3 className="font-bold text-coffee-dark text-lg truncate">
-                    {detection.filename}
-                  </h3>
-                </div>
-
-                <div className="space-y-2 text-sm mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-coffee-medium">
-                      Objek Terdeteksi:
-                    </span>
-                    <span className="font-semibold text-coffee-dark">
-                      {detection.detections_count || 0}
-                    </span>
-                  </div>
-
-                  {/* Confidence Score Display */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-coffee-medium">Avg Confidence:</span>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-coffee-dark">
-                        {formatConfidenceScore(getAverageConfidencePerDetection(detection))}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${getConfidenceStyle(getAverageConfidencePerDetection(detection))}`}>
-                        {getConfidenceLabel(getAverageConfidencePerDetection(detection))}
-                      </span>
+                        <span className="font-bold text-green-900">
+                          {detectionSummary.qualityDistribution.veryHigh}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                          <span className="text-blue-700">High (70-89%)</span>
+                        </div>
+                        <span className="font-bold text-blue-900">
+                          {detectionSummary.qualityDistribution.high}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                          <span className="text-yellow-700">Medium (50-69%)</span>
+                        </div>
+                        <span className="font-bold text-yellow-900">
+                          {detectionSummary.qualityDistribution.medium}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                          <span className="text-red-700">{`Low (<50%)`}</span>
+                        </div>
+                        <span className="font-bold text-red-900">
+                          {detectionSummary.qualityDistribution.low}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {detection.processing_time && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-coffee-medium">Waktu Proses:</span>
-                      <span className="font-semibold text-coffee-dark">
-                        {detection.processing_time.toFixed(2)}s
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-coffee-medium">Tanggal:</span>
-                    <span className="font-semibold text-coffee-dark">
-                      {new Date(detection.created_at).toLocaleDateString(
-                        "id-ID"
+                  <div className="bg-coffee-cream/30 p-6 rounded-xl"> {/* Increased padding from 4 to 6 */}
+                    <h3 className="font-semibold text-coffee-dark mb-4 flex items-center"> {/* Increased margin from 3 to 4 */}
+                      <Database className="w-4 h-4 mr-2" />
+                      Detection Classes
+                    </h3>
+                    <div className="space-y-3 max-h-32"> {/* Increased spacing from 2 to 3 */}
+                      {Object.entries(detectionSummary.classDistribution).map(
+                        ([className, count]) => (
+                          <div
+                            key={className}
+                            className="flex justify-between items-center">
+                            <span className="text-coffee-medium capitalize text-sm">
+                              {className.replace("_", " ")}
+                            </span>
+                            <span className="font-bold text-coffee-dark bg-coffee-cream px-2 py-1 rounded-full text-xs">
+                              {count}
+                            </span>
+                          </div>
+                        )
                       )}
-                    </span>
+                    </div>
                   </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCardClick(detection);
-                    }}>
-                    <Eye size={16} />
-                    Detail
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    className="flex-1 bg-coffee-light hover:bg-coffee-light/80 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDownloadImage(detection, true);
-                    }}>
-                    Show
-                  </Button>
                 </div>
               </div>
             </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="p-12 text-center bg-gradient-to-br from-coffee-cream/30 to-white shadow-coffee">
-          <div className="w-16 h-16 bg-coffee-cream rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-coffee-medium" />
+
+            {/* Quick Insights */}
+            <Card className="p-8 bg-gradient-to-br from-coffee-dark to-coffee-medium text-white shadow-coffee"> {/* Increased padding from 6 to 8 */}
+              <div className="flex items-center space-x-3 mb-8"> {/* Increased margin from 6 to 8 */}
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <Info className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold">Quick Insights</h3>
+              </div>
+
+              <div className="space-y-6"> {/* Increased spacing from 4 to 6 */}
+                <div className="bg-white/10 p-4 rounded-lg"> {/* Increased padding from 3 to 4 */}
+                  <div className="flex items-center space-x-2 mb-3"> {/* Increased margin from 2 to 3 */}
+                    <CircleCheck className="w-4 h-4 text-green-300" />
+                    <span className="font-semibold text-green-100">
+                      Model Performance
+                    </span>
+                  </div>
+                  <p className="text-coffee-cream/90 text-sm">
+                    {detectionSummary.avgConfidence >= 0.8
+                      ? "Excellent performance with high confidence scores"
+                      : detectionSummary.avgConfidence >= 0.6
+                      ? "Good performance with reliable detections"
+                      : "Model needs improvement for better accuracy"}
+                  </p>
+                </div>
+
+                <div className="bg-white/10 p-4 rounded-lg"> {/* Increased padding from 3 to 4 */}
+                  <div className="flex items-center space-x-2 mb-3"> {/* Increased margin from 2 to 3 */}
+                    <Activity className="w-4 h-4 text-blue-300" />
+                    <span className="font-semibold text-blue-100">
+                      Detection Rate
+                    </span>
+                  </div>
+                  <p className="text-coffee-cream/90 text-sm">
+                    {detectionSummary.successRate >= 90
+                      ? "Excellent success rate with consistent results"
+                      : detectionSummary.successRate >= 70
+                      ? "Good success rate with room for improvement"
+                      : "Consider optimizing detection parameters"}
+                  </p>
+                </div>
+
+                <div className="bg-white/10 p-4 rounded-lg"> {/* Increased padding from 3 to 4 */}
+                  <div className="flex items-center space-x-2 mb-3"> {/* Increased margin from 2 to 3 */}
+                    <AlertTriangle className="w-4 h-4 text-yellow-300" />
+                    <span className="font-semibold text-yellow-100">
+                      Quality Check
+                    </span>
+                  </div>
+                  <p className="text-coffee-cream/90 text-sm">
+                    {detectionSummary.qualityDistribution.veryHigh >=
+                    detectionSummary.qualityDistribution.low
+                      ? "High quality detections dominate the results"
+                      : "Consider reviewing low confidence detections"}
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
-          <h3 className="text-xl font-bold text-coffee-dark mb-2">
-            Belum ada laporan
-          </h3>
-          <p className="text-coffee-medium">
-            {searchTerm || statusFilter !== "all"
-              ? "Tidak ada hasil yang sesuai dengan filter Anda"
-              : "Lakukan deteksi pertama untuk melihat laporan di sini"}
-          </p>
-        </Card>
+        </div>
       )}
 
-      {/* Pagination */}
-      {pagination.total_pages > 1 && (
-        <div className="flex justify-center items-center space-x-2">
+      {/* Reports Grid - Added section title and spacing */}
+      <div className="mt-16"> {/* Added explicit margin top */}
+        <div className="mb-8"> {/* Added section header */}
+          <h2 className="text-2xl font-bold text-coffee-dark mb-2">
+            Detection Reports
+          </h2>
+          <p className="text-coffee-medium text-md">
+            Hasil deteksi individual dengan detail analisis
+          </p>
+        </div>
+
+        {filteredDetections.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"> {/* Increased gap from 6 to 8 */}
+            {filteredDetections.map((detection) => (
+              <Card
+                key={detection.id}
+                className="overflow-hidden cursor-pointer hover:shadow-coffee-lg transition-all duration-300 transform hover:scale-105 border-0 bg-gradient-to-br from-white to-coffee-cream/20"
+                onClick={() => handleCardClick(detection)}>
+                {/* Image Preview */}
+                <div className="relative h-48 bg-coffee-cream/30">
+                  <img
+                    src={
+                      detection.result_path
+                        ? apiService.getResultImageUrl(detection.id)
+                        : apiService.getOriginalImageUrl(detection.id)
+                    }
+                    alt={detection.filename}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = "/placeholder-image.jpg";
+                    }}
+                  />
+                  <div className="absolute top-3 right-3 flex flex-col gap-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadge(
+                        detection.status
+                      )}`}>
+                      {detection.status}
+                    </span>
+
+                    {/* Confidence Score Badge */}
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${getConfidenceStyle(
+                        getAverageConfidencePerDetection(detection)
+                      )}`}>
+                      {getConfidenceIcon(
+                        getAverageConfidencePerDetection(detection)
+                      )}
+                      {formatConfidenceScore(
+                        getAverageConfidencePerDetection(detection)
+                      )}
+                    </span>
+                  </div>
+
+                  {detection.detections_count > 0 && (
+                    <div className="absolute bottom-3 left-3 bg-coffee-dark/80 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                      {detection.detections_count} deteksi
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Content */}
+                <div className="p-6">
+                  <div className="flex items-center space-x-2 mb-3">
+                    {getStatusIcon(detection.status)}
+                    <h3 className="font-bold text-coffee-dark text-lg truncate">
+                      {detection.filename}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2 text-sm mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-coffee-medium">
+                        Objek Terdeteksi:
+                      </span>
+                      <span className="font-semibold text-coffee-dark">
+                        {detection.detections_count || 0}
+                      </span>
+                    </div>
+
+                    {/* Confidence Score Display */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-coffee-medium">Avg Confidence:</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-semibold text-coffee-dark">
+                          {formatConfidenceScore(
+                            getAverageConfidencePerDetection(detection)
+                          )}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${getConfidenceStyle(
+                            getAverageConfidencePerDetection(detection)
+                          )}`}>
+                          {getConfidenceLabel(
+                            getAverageConfidencePerDetection(detection)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {detection.processing_time && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-coffee-medium">Waktu Proses:</span>
+                        <span className="font-semibold text-coffee-dark">
+                          {detection.processing_time.toFixed(2)}s
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-coffee-medium">Tanggal:</span>
+                      <span className="font-semibold text-coffee-dark">
+                        {new Date(detection.created_at).toLocaleDateString(
+                          "id-ID"
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCardClick(detection);
+                      }}>
+                      <Eye size={16} />
+                      Detail
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-coffee-light hover:bg-coffee-light/80 text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadImage(detection, true);
+                      }}>
+                      Show
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="p-12 text-center bg-gradient-to-br from-coffee-cream/30 to-white shadow-coffee">
+            <div className="w-16 h-16 bg-coffee-cream rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-coffee-medium" />
+            </div>
+            <h3 className="text-xl font-bold text-coffee-dark mb-2">
+              Belum ada laporan
+            </h3>
+            <p className="text-coffee-medium">
+              {searchTerm || statusFilter !== "all"
+                ? "Tidak ada hasil yang sesuai dengan filter Anda"
+                : "Lakukan deteksi pertama untuk melihat laporan di sini"}
+            </p>
+          </Card>
+        )}
+      </div>
+
+      {/* Pagination - Fixed */}
+      {pagination && pagination.total_pages > 1 && (
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-6 bg-white rounded-2xl shadow-lg border border-coffee-cream/30">
+          {/* Info Text */}
+          <div className="text-sm text-coffee-medium">
+            Menampilkan {(currentPage - 1) * 12 + 1} -{" "}
+            {Math.min(currentPage * 12, pagination.total || 0)} dari{" "}
+            {pagination.total || 0} hasil
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center space-x-2">
+            {/* Previous Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+              className="flex items-center space-x-1 border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+              <ChevronLeft className="w-4 h-4" />
+              <span>Previous</span>
+            </Button>
+
+            {/* Page Numbers */}
+            <div className="flex space-x-1">
+              {(() => {
+                const totalPages = pagination.total_pages;
+                const current = currentPage;
+                const delta = 2; // Number of pages to show on each side of current page
+                const range = [];
+
+                // Always show first page
+                if (current > delta + 1) {
+                  range.push(1);
+                  if (current > delta + 2) {
+                    range.push("...");
+                  }
+                }
+
+                // Show pages around current page
+                for (
+                  let i = Math.max(1, current - delta);
+                  i <= Math.min(totalPages, current + delta);
+                  i++
+                ) {
+                  range.push(i);
+                }
+
+                // Always show last page
+                if (current < totalPages - delta) {
+                  if (current < totalPages - delta - 1) {
+                    range.push("...");
+                  }
+                  range.push(totalPages);
+                }
+
+                return range.map((page, index) =>
+                  page === "..." ? (
+                    <span key={index} className="px-3 py-2 text-coffee-medium">
+                      ...
+                    </span>
+                  ) : (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "primary" : "outline"}
+                      size="sm"
+                      className={`min-w-[40px] ${
+                        currentPage === page
+                          ? "bg-coffee-dark text-white hover:bg-coffee-dark/80"
+                          : "border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white"
+                      }`}
+                      onClick={() => setCurrentPage(page)}>
+                      {page}
+                    </Button>
+                  )
+                );
+              })()}
+            </div>
+
+            {/* Next Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === pagination.total_pages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+              className="flex items-center space-x-1 border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+              <span>Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Working Pagination */}
+      {detections && detections.length > 0 && (
+        <div className="flex justify-center items-center space-x-4 p-6 bg-white rounded-2xl shadow-lg border border-coffee-cream/30">
           <Button
             variant="outline"
             disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-            className="border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white">
-            Previous
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            className="flex items-center space-x-2 border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white disabled:opacity-50">
+            <ChevronLeft className="w-4 h-4" />
+            <span>Previous</span>
           </Button>
 
-          <div className="flex space-x-1">
-            {[...Array(pagination.total_pages)].map((_, index) => (
-              <Button
-                key={index + 1}
-                variant={currentPage === index + 1 ? "primary" : "outline"}
-                className={
-                  currentPage === index + 1
-                    ? "bg-coffee-dark text-white"
-                    : "border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white"
-                }
-                onClick={() => setCurrentPage(index + 1)}>
-                {index + 1}
-              </Button>
-            ))}
+          <div className="flex items-center space-x-2">
+            <span className="text-coffee-medium">Page</span>
+            <span className="font-bold text-coffee-dark px-3 py-1 bg-coffee-cream/30 rounded">
+              {currentPage}
+            </span>
+            {pagination?.total_pages && (
+              <>
+                <span className="text-coffee-medium">of</span>
+                <span className="font-bold text-coffee-dark px-3 py-1 bg-coffee-cream/30 rounded">
+                  {pagination.total_pages}
+                </span>
+              </>
+            )}
           </div>
 
           <Button
             variant="outline"
-            disabled={currentPage === pagination.total_pages}
+            disabled={
+              pagination?.total_pages && currentPage === pagination.total_pages
+            }
             onClick={() => setCurrentPage(currentPage + 1)}
-            className="border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white">
-            Next
+            className="flex items-center space-x-2 border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white disabled:opacity-50">
+            <span>Next</span>
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       )}
@@ -824,7 +955,9 @@ const ReportsPage = () => {
                       Gambar Asli
                     </h4>
                     <Button
-                      onClick={() => handleDownloadImage(selectedDetection, false)}
+                      onClick={() =>
+                        handleDownloadImage(selectedDetection, false)
+                      }
                       variant="outline"
                       size="sm"
                       className="border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white">
@@ -854,15 +987,22 @@ const ReportsPage = () => {
                           className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${getConfidenceStyle(
                             getAverageConfidencePerDetection(selectedDetection)
                           )}`}>
-                          {getConfidenceIcon(getAverageConfidencePerDetection(selectedDetection))}
-                          {formatConfidenceScore(getAverageConfidencePerDetection(selectedDetection))}
+                          {getConfidenceIcon(
+                            getAverageConfidencePerDetection(selectedDetection)
+                          )}
+                          {formatConfidenceScore(
+                            getAverageConfidencePerDetection(selectedDetection)
+                          )}
                         </span>
                         <Button
-                          onClick={() => handleDownloadImage(selectedDetection, true)}
+                          onClick={() =>
+                            handleDownloadImage(selectedDetection, true)
+                          }
                           variant="outline"
                           size="sm"
                           className="border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white">
-                          <ZoomIn size={16} />Show
+                          <ZoomIn size={16} />
+                          Show
                         </Button>
                       </div>
                     </div>
@@ -969,65 +1109,96 @@ const ReportsPage = () => {
 
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium text-blue-800">Average Confidence:</span>
+                      <span className="font-medium text-blue-800">
+                        Average Confidence:
+                      </span>
                       <div className="flex items-center space-x-2">
                         <span className="text-2xl font-bold text-blue-900">
-                          {formatConfidenceScore(getAverageConfidencePerDetection(selectedDetection))}
+                          {formatConfidenceScore(
+                            getAverageConfidencePerDetection(selectedDetection)
+                          )}
                         </span>
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${getConfidenceStyle(
                             getAverageConfidencePerDetection(selectedDetection)
                           )}`}>
-                          {getConfidenceIcon(getAverageConfidencePerDetection(selectedDetection))}
-                          {getConfidenceLabel(getAverageConfidencePerDetection(selectedDetection))}
+                          {getConfidenceIcon(
+                            getAverageConfidencePerDetection(selectedDetection)
+                          )}
+                          {getConfidenceLabel(
+                            getAverageConfidencePerDetection(selectedDetection)
+                          )}
                         </span>
                       </div>
                     </div>
 
                     {/* Individual Confidence Scores */}
-                    {selectedDetection.confidence_scores && selectedDetection.confidence_scores.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-blue-800">Individual Scores:</span>
-                          <span className="text-xs text-blue-600">
-                            {selectedDetection.confidence_scores.length} objects
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                          {selectedDetection.confidence_scores.map((score, index) => (
-                            <div key={index} className="bg-white p-2 rounded-lg flex items-center justify-between">
-                              <span className="text-xs text-gray-600">#{index + 1}:</span>
-                              <span className={`text-xs font-semibold px-2 py-1 rounded ${getConfidenceStyle(score)}`}>
-                                {formatConfidenceScore(score)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                    {selectedDetection.confidence_scores &&
+                      selectedDetection.confidence_scores.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-blue-800">
+                              Individual Scores:
+                            </span>
+                            <span className="text-xs text-blue-600">
+                              {selectedDetection.confidence_scores.length}{" "}
+                              objects
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                            {selectedDetection.confidence_scores.map(
+                              (score, index) => (
+                                <div
+                                  key={index}
+                                  className="bg-white p-2 rounded-lg flex items-center justify-between">
+                                  <span className="text-xs text-gray-600">
+                                    #{index + 1}:
+                                  </span>
+                                  <span
+                                    className={`text-xs font-semibold px-2 py-1 rounded ${getConfidenceStyle(
+                                      score
+                                    )}`}>
+                                    {formatConfidenceScore(score)}
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
 
-                        {/* Statistics */}
-                        <div className="bg-white p-3 rounded-lg">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-600">Min:</span>
-                              <span className="font-semibold text-gray-800 ml-2">
-                                {formatConfidenceScore(Math.min(...selectedDetection.confidence_scores))}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Max:</span>
-                              <span className="font-semibold text-gray-800 ml-2">
-                                {formatConfidenceScore(Math.max(...selectedDetection.confidence_scores))}
-                              </span>
+                          {/* Statistics */}
+                          <div className="bg-white p-3 rounded-lg">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">Min:</span>
+                                <span className="font-semibold text-gray-800 ml-2">
+                                  {formatConfidenceScore(
+                                    Math.min(
+                                      ...selectedDetection.confidence_scores
+                                    )
+                                  )}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Max:</span>
+                                <span className="font-semibold text-gray-800 ml-2">
+                                  {formatConfidenceScore(
+                                    Math.max(
+                                      ...selectedDetection.confidence_scores
+                                    )
+                                  )}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     <div className="bg-white p-3 rounded-lg">
                       <p className="text-sm text-gray-600">
-                        <strong>Confidence Score</strong> mengukur tingkat kepercayaan model AI terhadap setiap deteksi objek.
-                        Skor yang lebih tinggi menunjukkan model lebih yakin dengan hasil deteksinya.
+                        <strong>Confidence Score</strong> mengukur tingkat
+                        kepercayaan model AI terhadap setiap deteksi objek. Skor
+                        yang lebih tinggi menunjukkan model lebih yakin dengan
+                        hasil deteksinya.
                       </p>
                     </div>
                   </div>
