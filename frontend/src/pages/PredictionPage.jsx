@@ -2,7 +2,22 @@ import React, { useState, useRef, useEffect } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Loader from "../components/ui/Loader";
-import { Save, Upload, Play, X, Camera, Wifi, WifiOff, Download } from "lucide-react";
+import {
+  Save,
+  Upload,
+  Play,
+  X,
+  Camera,
+  Wifi,
+  WifiOff,
+  Download,
+  AlertCircle,
+  CheckCircle,
+  Activity,
+  Zap,
+  Eye,
+  Target,
+} from "lucide-react";
 import apiService from "../services/api";
 
 const PredictionPage = () => {
@@ -155,45 +170,23 @@ const PredictionPage = () => {
         }
       }
 
-      // Strategy 3: Fallback to ESP32-CAM capture endpoint
-      if (!captureResult) {
-        try {
-          captureResult = await apiService.captureEsp32Frame(esp32IP);
-          captureMethod = "esp32-frame";
-          console.log("✅ ESP32-CAM frame capture successful");
-        } catch (error) {
-          console.warn("❌ ESP32-CAM frame capture failed:", error.message);
-        }
-      }
-
       // Process result
       if (captureResult && captureResult.success) {
         const detectionCount = captureResult.detections_count || 0;
         const processingTime = captureResult.processing_time || 0;
 
         // Show success message
-        const successMessage = `
-          📸 Capture berhasil! 
-          
-          📊 Metode: ${captureMethod}
-          🎯 Objek terdeteksi: ${detectionCount}
-          ⏱️ Waktu proses: ${processingTime.toFixed(2)}s
-          💾 ID Database: #${captureResult.detection_id || "N/A"}
-          
-          Gambar telah disimpan di database dan dapat dilihat di halaman Reports.
-        `;
-
-        alert(successMessage);
+        alert(
+          `📸 Capture berhasil!\n\n📊 Metode: ${captureMethod}\n🎯 Objek terdeteksi: ${detectionCount}\n⏱️ Waktu proses: ${processingTime.toFixed(
+            2
+          )}s\n💾 ID Database: #${
+            captureResult.detection_id || "N/A"
+          }\n\nGambar telah disimpan di database dan dapat dilihat di halaman Reports.`
+        );
 
         // Update UI
         if (captureResult.detections && captureResult.detections.length > 0) {
           setLiveDetections(captureResult.detections);
-        }
-
-        // Optional: Show download buttons
-        if (captureResult.detection_id) {
-          setError(null);
-          console.log("Capture saved with ID:", captureResult.detection_id);
         }
       } else {
         throw new Error(captureResult?.error || "All capture methods failed");
@@ -201,19 +194,6 @@ const PredictionPage = () => {
     } catch (error) {
       console.error("❌ Capture completely failed:", error);
       setError(`Capture gagal: ${error.message}`);
-
-      // Show detailed error to user
-      alert(`
-        ❌ Capture gagal!
-        
-        Error: ${error.message}
-        
-        Troubleshooting:
-        1. Pastikan ESP32-CAM terhubung (IP: ${esp32IP})
-        2. Pastikan backend server berjalan
-        3. Coba refresh halaman dan ulangi
-        4. Periksa koneksi WiFi
-      `);
     } finally {
       setCapturingFrame(false);
     }
@@ -480,17 +460,19 @@ const PredictionPage = () => {
   // Loading overlay
   if (resetting) {
     return (
-      <div className="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
-        <div className="text-center">
-          <Loader />
-          <p className="mt-4 text-lg font-semibold text-text-main">
-            Mereset halaman...
-          </p>
-          <p className="text-sm text-text-light mt-2">Memuat ulang aplikasi</p>
-          <div className="mt-4 bg-gray-200 rounded-full h-2 w-64 mx-auto">
-            <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
-              style={{ width: "100%" }}></div>
+      <div className="fixed inset-0 bg-coffee-cream/95 flex items-center justify-center z-50">
+        <div className="text-center p-8 bg-white rounded-3xl shadow-coffee-lg max-w-md">
+          <div className="mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-coffee-dark rounded-full mb-4">
+              <Activity className="w-8 h-8 text-white animate-spin" />
+            </div>
+            <h3 className="text-2xl font-bold text-coffee-dark mb-2">
+              Mereset Sistem
+            </h3>
+            <p className="text-coffee-medium">Memuat ulang aplikasi...</p>
+          </div>
+          <div className="bg-coffee-cream rounded-full h-2 w-64 mx-auto">
+            <div className="bg-coffee-dark h-2 rounded-full transition-all duration-1000 ease-out w-full"></div>
           </div>
         </div>
       </div>
@@ -498,18 +480,29 @@ const PredictionPage = () => {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-text-main">
-          Real-Time Prediction
-        </h1>
-        <div className="flex gap-2">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-coffee-dark mb-2">
+            Real-Time Prediction
+          </h1>
+          <p className="text-coffee-medium text-lg">
+            Prediksi tingkat roasting biji kopi secara langsung
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
           {/* ESP32-CAM Live Detection Toggle */}
           {isRealTimeMode && esp32Connected && (
             <Button
               onClick={toggleLiveDetection}
               variant={detectionEnabled ? "success" : "outline"}
-              type="button"
+              className={`${
+                detectionEnabled
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white"
+              }`}
               disabled={!esp32Connected}>
               {detectionEnabled ? <WifiOff size={18} /> : <Wifi size={18} />}
               {detectionEnabled ? "Stop Detection" : "Start Detection"}
@@ -520,31 +513,18 @@ const PredictionPage = () => {
           {isRealTimeMode && (
             <Button
               onClick={handleSaveCapture}
-              variant="success"
-              type="button"
+              className="bg-coffee-light hover:bg-coffee-light/80 text-white"
               disabled={capturingFrame || !esp32Connected}>
               <Camera size={18} />
               {capturingFrame ? "Capturing..." : "Save Capture"}
             </Button>
           )}
 
-          {/* Download button for canvas capture
-          {isRealTimeMode && streamUrl && (
-            <Button
-              onClick={downloadCapturedImage}
-              variant="outline"
-              type="button"
-              disabled={capturingFrame}>
-              <Download size={18} />
-              Download
-            </Button>
-          )} */}
-
           {currentDetection && (
             <Button
               onClick={handleReset}
               variant="outline"
-              type="button"
+              className="border-red-400 text-red-600 hover:bg-red-50"
               disabled={resetting}>
               <X size={18} />
               Reset
@@ -553,101 +533,119 @@ const PredictionPage = () => {
         </div>
       </div>
 
+      {/* Error Alert */}
       {error && (
-        <Card className="mb-6 p-4 bg-red-50 border-red-200">
-          <p className="text-red-600">{error}</p>
+        <Card className="p-4 bg-red-50 border-2 border-red-200 shadow-coffee">
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-red-700 font-medium">{error}</p>
+          </div>
         </Card>
       )}
 
-      {/* Enhanced status info */}
-      <Card className="mb-6 p-4 bg-blue-50 border-blue-200">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-blue-700">
-              <strong>📡 ESP32-CAM Status:</strong> {esp32Status}
-            </p>
-            <p className="text-blue-600 text-sm">
-              IP: {esp32IP} | Stream: {streamUrl ? "Active" : "Inactive"}
-              {detectionEnabled && " | Live Detection: ON"}
-            </p>
-            {lastDetectionTime && (
-              <p className="text-blue-600 text-xs">
-                Last Detection: {lastDetectionTime.toLocaleTimeString()}
+      {/* ESP32-CAM Status */}
+      <Card className="p-6 bg-gradient-to-r from-coffee-dark to-coffee-medium text-white shadow-coffee">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center space-x-4 mb-4 md:mb-0">
+            <div
+              className={`w-4 h-4 rounded-full ${
+                esp32Connected ? "bg-green-400" : "bg-red-400"
+              } animate-pulse`}></div>
+            <div>
+              <h3 className="text-lg font-bold">ESP32-CAM Status</h3>
+              <p className="text-coffee-cream/90">{esp32Status}</p>
+              <p className="text-coffee-cream/80 text-sm">
+                ESP32-CAM | Stream: {streamUrl ? "Active" : "Inactive"}
+                {detectionEnabled && " | Live Detection: ON"}
               </p>
-            )}
+              {lastDetectionTime && (
+                <p className="text-coffee-cream/70 text-xs">
+                  Last Detection: {lastDetectionTime.toLocaleTimeString()}
+                </p>
+              )}
+            </div>
           </div>
+
           <div className="flex gap-2">
             <Button
               onClick={startEsp32Stream}
               variant="outline"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               size="sm"
               disabled={!esp32Connected}>
-              📹 Start Stream
+              <Eye size={16} />
+              Start Stream
             </Button>
-            <Button onClick={stopEsp32Stream} variant="outline" size="sm">
-              ⏹️ Stop Stream
+            <Button
+              onClick={stopEsp32Stream}
+              variant="outline"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              size="sm">
+              <X size={16} />
+              Stop Stream
             </Button>
           </div>
         </div>
       </Card>
 
-      {/* Enhanced capture ready info */}
+      {/* Capture Ready Alert */}
       {isRealTimeMode && esp32Connected && (
-        <Card className="mb-6 p-4 bg-green-50 border-green-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-green-700">
-                <strong>📸 Capture Ready:</strong>
-                {liveDetections.length > 0
-                  ? ` Terdeteksi ${liveDetections.length} objek`
-                  : " Stream aktif"}
-              </p>
-              <p className="text-green-600 text-sm">
-                Klik "Save Capture" untuk menyimpan frame ke database
-                {detectionEnabled && " dengan hasil deteksi"}
-              </p>
+        <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-coffee">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+              <div>
+                <h3 className="text-lg font-bold text-green-800">
+                  Capture Ready
+                </h3>
+                <p className="text-green-700">
+                  {liveDetections.length > 0
+                    ? `Terdeteksi ${liveDetections.length} objek`
+                    : "Stream aktif"}
+                </p>
+                <p className="text-green-600 text-sm">
+                  Klik "Save Capture" untuk menyimpan frame ke database
+                  {detectionEnabled && " dengan hasil deteksi"}
+                </p>
+              </div>
             </div>
+
             <div className="flex gap-2">
               <Button
                 onClick={handleSaveCapture}
-                variant="success"
+                className="bg-green-600 hover:bg-green-700 text-white"
                 size="sm"
                 disabled={capturingFrame || !esp32Connected}>
                 <Camera size={16} />
                 {capturingFrame ? "Saving..." : "Quick Capture"}
               </Button>
-              {/* <Button
-                onClick={downloadCapturedImage}
-                variant="outline"
-                size="sm"
-                disabled={!streamUrl}>
-                <Download size={16} />
-                Download
-              </Button> */}
             </div>
           </div>
         </Card>
       )}
 
+      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Video Stream Column */}
         <div className="lg:col-span-2">
-          <Card className="p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden shadow-coffee">
             <div className="relative">
               {loading || capturingFrame ? (
-                <div className="w-full h-96 flex items-center justify-center bg-gray-100">
+                <div className="w-full h-96 flex items-center justify-center bg-coffee-cream/50">
                   <div className="text-center">
-                    <Loader />
-                    <p className="mt-2">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-coffee-dark rounded-full mb-4">
+                      <Activity className="w-8 h-8 text-white animate-spin" />
+                    </div>
+                    <h3 className="text-lg font-bold text-coffee-dark mb-2">
                       {capturingFrame
                         ? "Menyimpan ESP32-CAM capture..."
                         : "Memuat..."}
-                    </p>
+                    </h3>
+                    <p className="text-coffee-medium">Mohon tunggu sebentar</p>
                   </div>
                 </div>
               ) : currentDetection && !isRealTimeMode ? (
                 <>
-                  {/* Uploaded image display */}
                   <img
                     src={
                       currentDetection.result_path
@@ -661,10 +659,15 @@ const PredictionPage = () => {
                     }}
                   />
                   {detecting && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <Loader />
-                        <p className="mt-2">Memproses deteksi...</p>
+                    <div className="absolute inset-0 bg-coffee-dark/50 flex items-center justify-center">
+                      <div className="text-white text-center bg-coffee-dark/80 p-6 rounded-xl">
+                        <Activity className="w-8 h-8 text-white animate-spin mx-auto mb-4" />
+                        <p className="text-lg font-semibold">
+                          Memproses deteksi...
+                        </p>
+                        <p className="text-coffee-cream/80">
+                          Menganalisis gambar dengan AI
+                        </p>
                       </div>
                     </div>
                   )}
@@ -678,7 +681,7 @@ const PredictionPage = () => {
                         ref={imgRef}
                         src={streamUrl}
                         alt="ESP32-CAM Stream"
-                        className="w-full h-auto min-h-[450px] max-h-[600px] object-cover bg-black"
+                        className="w-full h-auto min-h-[450px] max-h-[600px] object-cover bg-coffee-dark"
                         style={{ aspectRatio: "16/9" }}
                         onError={(e) => {
                           console.error("ESP32-CAM stream error");
@@ -695,17 +698,24 @@ const PredictionPage = () => {
 
                       {/* Detection status overlay */}
                       {detectionEnabled && (
-                        <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm">
-                          🔍 Live Detection ON
+                        <div className="absolute top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-coffee">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                            <span>Live Detection ON</span>
+                          </div>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="w-full h-96 flex items-center justify-center bg-gray-800 text-white">
+                    <div className="w-full h-96 flex items-center justify-center bg-coffee-dark text-white">
                       <div className="text-center">
-                        <Camera size={48} className="mx-auto mb-4" />
-                        <p className="text-lg">ESP32-CAM Stream</p>
-                        <p className="text-sm mt-2">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-coffee-light rounded-full mb-4">
+                          <Camera size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">
+                          ESP32-CAM Stream
+                        </h3>
+                        <p className="text-coffee-cream/80">
                           {esp32Connected
                             ? "Click 'Start Stream' to begin"
                             : `Connecting to ${esp32IP}...`}
@@ -714,11 +724,16 @@ const PredictionPage = () => {
                     </div>
                   )}
 
-                  {/* Capture overlay for ESP32-CAM */}
+                  {/* Capture overlay */}
                   {capturingFrame && (
-                    <div className="absolute inset-0 bg-white bg-opacity-30 flex items-center justify-center">
-                      <div className="bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
-                        📸 Capturing ESP32-CAM Frame...
+                    <div className="absolute inset-0 bg-white/30 flex items-center justify-center">
+                      <div className="bg-coffee-dark/90 text-white px-6 py-4 rounded-xl">
+                        <div className="flex items-center space-x-3">
+                          <Camera className="w-5 h-5 animate-pulse" />
+                          <span className="font-semibold">
+                            Capturing ESP32-CAM Frame...
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -726,8 +741,8 @@ const PredictionPage = () => {
               )}
             </div>
 
-            <div className="p-6 border-t">
-              {/* File input */}
+            {/* Card Footer */}
+            <div className="p-6 border-t border-coffee-cream/50 bg-gradient-to-r from-coffee-cream/30 to-white">
               <input
                 type="file"
                 accept="image/*"
@@ -736,22 +751,24 @@ const PredictionPage = () => {
                 className="hidden"
               />
 
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>💡 Tips:</strong>
+              <div className="mb-4 p-4 bg-coffee-light/10 border border-coffee-light/20 rounded-xl">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Target className="w-5 h-5 text-coffee-light" />
+                  <span className="font-semibold text-coffee-dark">
+                    Tips Penggunaan:
+                  </span>
+                </div>
+                <p className="text-sm text-coffee-medium">
                   {isRealTimeMode
-                    ? " ESP32-CAM real-time menggunakan stream external. Pastikan pencahayaan yang memadai dan koneksi WiFi stabil untuk hasil optimal. Aktifkan 'Live Detection' untuk deteksi real-time, lalu simpan capture ketika objek terdeteksi."
-                    : " Gunakan gambar dengan rasio yang sesuai untuk hasil terbaik."}
+                    ? "ESP32-CAM real-time menggunakan stream eksternal. Pastikan pencahayaan memadai dan koneksi WiFi stabil. Aktifkan 'Live Detection' untuk deteksi real-time, lalu simpan capture ketika objek terdeteksi."
+                    : "Gunakan gambar dengan kualitas baik dan pencahayaan yang memadai untuk hasil deteksi optimal."}
                 </p>
               </div>
 
-              <div className="flex gap-2">
-                {/* Upload button */}
+              <div className="flex gap-3">
                 <Button
                   onClick={handleFileInputClick}
-                  className="flex-1"
-                  variant="primary"
-                  type="button"
+                  className="flex-1 bg-coffee-dark hover:bg-coffee-medium text-white"
                   disabled={loading || resetting || capturingFrame}>
                   <Upload size={18} />
                   {currentDetection && !isRealTimeMode
@@ -763,7 +780,7 @@ const PredictionPage = () => {
                   <Button
                     onClick={handleReset}
                     variant="outline"
-                    type="button"
+                    className="border-red-400 text-red-600 hover:bg-red-50"
                     disabled={loading || resetting}>
                     <X size={18} />
                     {resetting ? "Mereset..." : "Batal"}
@@ -776,15 +793,20 @@ const PredictionPage = () => {
 
         {/* Info Column */}
         <div>
-          <Card>
-            <h2 className="text-xl font-semibold text-text-main mb-4">
-              Hasil Deteksi
-            </h2>
+          <Card className="p-6 shadow-coffee">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-coffee-light/10 rounded-lg">
+                <Target className="w-6 h-6 text-coffee-light" />
+              </div>
+              <h2 className="text-xl font-bold text-coffee-dark">
+                Hasil Deteksi
+              </h2>
+            </div>
 
-            <div className="space-y-3">
-              <p>
-                <strong>Status:</strong>{" "}
-                <span className={`font-semibold ${getStatusColor()}`}>
+            <div className="space-y-4">
+              <div className="p-4 bg-coffee-cream/30 rounded-xl border border-coffee-cream">
+                <h3 className="font-semibold text-coffee-dark mb-2">Status:</h3>
+                <span className={`font-bold ${getStatusColor()}`}>
                   {resetting
                     ? "Mereset..."
                     : capturingFrame
@@ -795,93 +817,135 @@ const PredictionPage = () => {
                       : "ESP32-CAM Stream Ready"
                     : getStatusText()}
                 </span>
-              </p>
+              </div>
 
-              {/* Show ESP32-CAM source */}
-              <p>
-                <strong>Sumber:</strong>{" "}
-                <span
-                  className={`font-semibold ${
-                    esp32Connected ? "text-blue-600" : "text-red-600"
-                  }`}>
-                  {isRealTimeMode ? `ESP32-CAM (${esp32IP})` : "Upload Gambar"}
-                  {isRealTimeMode && (esp32Connected ? " ✓" : " ✗")}
-                </span>
-              </p>
-
-              <p>
-                <strong>Total Biji Kopi:</strong>{" "}
-                {currentDetection?.detections_count ||
-                  (isRealTimeMode ? liveDetections.length : 0)}
-              </p>
-
-              {currentDetection?.processing_time && !isRealTimeMode && (
-                <p>
-                  <strong>Waktu Proses:</strong>{" "}
-                  {currentDetection.processing_time.toFixed(2)}s
-                </p>
-              )}
-
-              <div className="border-t my-4" />
-
-              <h3 className="font-semibold">Detail per Kelas:</h3>
-
-              {currentDetection &&
-              !isRealTimeMode &&
-              formatClassDistribution().length > 0 ? (
-                <div>
-                  <p className="text-sm text-green-600 mb-2">
-                    Hasil deteksi gambar:
-                  </p>
-                  <ul className="list-disc list-inside text-text-light space-y-1">
-                    {formatClassDistribution().map(
-                      ({ class: cls, count, label }) => (
-                        <li key={cls}>
-                          {label}: {count}
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              ) : isRealTimeMode && liveDetections.length > 0 ? (
-                <div>
-                  <p className="text-sm text-blue-600 mb-2">
-                    ESP32-CAM real-time deteksi:
-                  </p>
-                  <ul className="list-disc list-inside text-text-light space-y-1">
-                    {liveDetections.map((detection, index) => (
-                      <li key={index}>
-                        {detection.label}:{" "}
-                        {Math.round(detection.confidence * 100)}%
-                      </li>
-                    ))}
-                  </ul>
-
-                  {lastDetectionTime && (
-                    <p className="text-xs text-blue-500 mt-2">
-                      Terakhir update: {lastDetectionTime.toLocaleTimeString()}
-                    </p>
+              <div className="p-4 bg-coffee-cream/30 rounded-xl border border-coffee-cream">
+                <h3 className="font-semibold text-coffee-dark mb-2">Sumber:</h3>
+                <div className="flex items-center space-x-2 justify-between">
+                  <span
+                    className={`font-semibold ${
+                      esp32Connected ? "text-green-600" : "text-red-600"
+                    }`}>
+                    {isRealTimeMode
+                      ? `ESP32-CAM`
+                      : "Upload Gambar"}
+                  </span>
+                  {isRealTimeMode && (
+                    <span
+                      className={`text-xs py-1 px-2 rounded-full ${
+                        esp32Connected
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}>
+                      {esp32Connected ? "✓ Connected" : "✗ Disconnected"}
+                    </span>
                   )}
                 </div>
-              ) : (
-                <p className="text-text-light">
-                  {isRealTimeMode
-                    ? detectionEnabled
-                      ? "Menunggu deteksi dari ESP32-CAM..."
-                      : "Aktifkan 'Live Detection' untuk deteksi real-time"
-                    : "Pilih gambar untuk deteksi"}
-                </p>
+              </div>
+
+              <div className="p-4 bg-coffee-cream/30 rounded-xl border border-coffee-cream">
+                <h3 className="font-semibold text-coffee-dark mb-2">
+                  Total Deteksi:
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl font-bold text-coffee-dark">
+                    {currentDetection?.detections_count ||
+                      (isRealTimeMode ? liveDetections.length : 0)}
+                  </span>
+                  <span className="text-coffee-medium">objek</span>
+                </div>
+              </div>
+
+              {currentDetection?.processing_time && !isRealTimeMode && (
+                <div className="p-4 bg-coffee-cream/30 rounded-xl border border-coffee-cream">
+                  <h3 className="font-semibold text-coffee-dark mb-2">
+                    Waktu Proses:
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-4 h-4 text-coffee-light" />
+                    <span className="font-bold text-coffee-dark">
+                      {currentDetection.processing_time.toFixed(2)}s
+                    </span>
+                  </div>
+                </div>
               )}
+
+              <div className="border-t border-coffee-cream/50 pt-4">
+                <h3 className="font-semibold text-coffee-dark mb-3">
+                  Detail per Kelas:
+                </h3>
+
+                {currentDetection &&
+                !isRealTimeMode &&
+                formatClassDistribution().length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-green-600 font-medium mb-3">
+                      Hasil deteksi gambar:
+                    </p>
+                    {formatClassDistribution().map(
+                      ({ class: cls, count, label }) => (
+                        <div
+                          key={cls}
+                          className="flex justify-between items-center p-2 bg-coffee-cream/50 rounded-lg">
+                          <span className="font-medium text-coffee-dark">
+                            {label}
+                          </span>
+                          <span className="font-bold text-coffee-dark">
+                            {count}
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : isRealTimeMode && liveDetections.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-blue-600 font-medium mb-3">
+                      ESP32-CAM real-time deteksi:
+                    </p>
+                    {liveDetections.map((detection, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center p-2 bg-coffee-cream/50 rounded-lg">
+                        <span className="font-medium text-coffee-dark">
+                          {detection.label}
+                        </span>
+                        <span className="font-bold text-coffee-dark">
+                          {Math.round(detection.confidence * 100)}%
+                        </span>
+                      </div>
+                    ))}
+
+                    {lastDetectionTime && (
+                      <p className="text-xs text-blue-500 mt-2 text-center">
+                        Terakhir update:{" "}
+                        {lastDetectionTime.toLocaleTimeString()}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <div className="w-12 h-12 bg-coffee-cream rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Target className="w-6 h-6 text-coffee-medium" />
+                    </div>
+                    <p className="text-coffee-medium">
+                      {isRealTimeMode
+                        ? detectionEnabled
+                          ? "Menunggu deteksi dari ESP32-CAM..."
+                          : "Aktifkan 'Live Detection' untuk deteksi real-time"
+                        : "Pilih gambar untuk deteksi"}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-2 mt-6">
+            {/* Action Buttons */}
+            <div className="space-y-3 mt-6">
               {/* Prediction buttons for uploaded images */}
               {currentDetection?.status === "uploaded" && !isRealTimeMode && (
                 <Button
                   onClick={handleDetection}
-                  className="w-full"
-                  variant="primary"
-                  type="button"
+                  className="w-full bg-coffee-dark hover:bg-coffee-medium text-white"
                   disabled={detecting || resetting}>
                   <Play size={18} />
                   {detecting ? "Memproses..." : "Mulai Deteksi"}
@@ -892,12 +956,9 @@ const PredictionPage = () => {
                 <Button
                   onClick={(e) => {
                     e.preventDefault();
-                    e.stopPropagation();
                     alert("Hasil telah tersimpan di database!");
                   }}
-                  className="w-full"
-                  variant="success"
-                  type="button"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
                   disabled={resetting}>
                   <Save size={18} />
                   Hasil Tersimpan
@@ -906,13 +967,14 @@ const PredictionPage = () => {
 
               {/* ESP32-CAM real-time controls */}
               {isRealTimeMode && !resetting && (
-                <div className="space-y-2">
-                  {/* Live Detection Toggle */}
+                <div className="space-y-3">
                   <Button
                     onClick={toggleLiveDetection}
-                    className="w-full"
-                    variant={detectionEnabled ? "success" : "outline"}
-                    type="button"
+                    className={`w-full ${
+                      detectionEnabled
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-coffee-dark hover:bg-coffee-medium"
+                    } text-white`}
                     disabled={!esp32Connected}>
                     {detectionEnabled ? (
                       <WifiOff size={18} />
@@ -924,13 +986,10 @@ const PredictionPage = () => {
                       : "Start Live Detection"}
                   </Button>
 
-                  {/* Save Capture */}
                   {liveDetections.length > 0 && esp32Connected && (
                     <Button
                       onClick={handleSaveCapture}
-                      className="w-full"
-                      variant="success"
-                      type="button"
+                      className="w-full bg-coffee-light hover:bg-coffee-light/80 text-white"
                       disabled={capturingFrame}>
                       <Camera size={18} />
                       {capturingFrame
@@ -939,22 +998,22 @@ const PredictionPage = () => {
                     </Button>
                   )}
 
-                  <div className="text-center">
-                    <p className="text-sm text-text-light">
+                  <div className="text-center p-4 bg-coffee-cream/30 rounded-xl">
+                    <p className="text-sm text-coffee-medium font-medium">
                       {detectionEnabled
                         ? "Mode deteksi real-time ESP32-CAM aktif"
                         : "Mode stream ESP32-CAM"}
                     </p>
-                    <p className="text-xs text-text-light mt-1">
+                    {/* <p className="text-xs text-coffee-medium mt-1">
                       ESP32-CAM Stream: {esp32IP}:81
-                    </p>
+                    </p> */}
                     {liveDetections.length > 0 && esp32Connected && (
-                      <p className="text-xs text-green-600 mt-1">
+                      <p className="text-xs text-green-600 mt-2">
                         ✓ Siap untuk capture ESP32-CAM
                       </p>
                     )}
                     {!esp32Connected && (
-                      <p className="text-xs text-red-600 mt-1">
+                      <p className="text-xs text-red-600 mt-2">
                         ✗ ESP32-CAM tidak terhubung
                       </p>
                     )}
