@@ -718,7 +718,7 @@ const PredictionPage = () => {
                         <p className="text-coffee-cream/80">
                           {esp32Connected
                             ? "Click 'Start Stream' to begin"
-                            : `Connecting to ${esp32IP}...`}
+                            : `Connecting to ESP32-CAM...`}
                         </p>
                       </div>
                     </div>

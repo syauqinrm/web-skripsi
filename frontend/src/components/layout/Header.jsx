@@ -30,7 +30,7 @@ const Header = ({
             {/* Title */}
             <div className="flex-shrink-0">
               <p className="text-coffee-medium text-md font-bold">
-                Real-time Coffee Prediction System
+                Coffee Prediction System
               </p>
             </div>
           </div>

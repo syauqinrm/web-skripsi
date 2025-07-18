@@ -6,17 +6,70 @@ import {
   BarChart,
   Clock,
   Image as ImageIcon,
-  TrendingUp,
-  TrendingDown,
   Activity,
   Target,
   Coffee,
+  Package,
 } from "lucide-react";
 import { useStats, useDetections } from "../hooks/useApi";
 
 const DashboardPage = () => {
   const { stats, loading: statsLoading, error: statsError } = useStats();
   const { detections, loading: detectionsLoading } = useDetections(1, 50);
+
+  // Calculate total objects detected
+  const getTotalObjects = () => {
+    if (!detections.length) return 0;
+    return detections.reduce((total, detection) => {
+      return total + (detection.detections_count || 0);
+    }, 0);
+  };
+
+  // Calculate average objects per detection
+  const getAverageObjects = () => {
+    if (!detections.length) return 0;
+    const totalObjects = getTotalObjects();
+    return (totalObjects / detections.length).toFixed(1);
+  };
+
+  // Calculate successful detections (completed AND has objects)
+  const getSuccessfulDetections = () => {
+    if (!detections.length) return 0;
+    return detections.filter(
+      (detection) =>
+        detection.status === "completed" && detection.detections_count > 0
+    ).length;
+  };
+
+  // Calculate failed detections (failed OR no objects detected)
+  const getFailedDetections = () => {
+    if (!detections.length) return 0;
+    return detections.filter(
+      (detection) =>
+        detection.status === "failed" ||
+        (detection.status === "completed" && detection.detections_count === 0)
+    ).length;
+  };
+
+  // Calculate success rate based on object detection
+  const getActualSuccessRate = () => {
+    if (!detections.length) return 0;
+    const successfulDetections = getSuccessfulDetections();
+    return ((successfulDetections / detections.length) * 100).toFixed(1);
+  };
+
+  // Get detections with objects only
+  const getDetectionsWithObjects = () => {
+    return detections.filter((detection) => detection.detections_count > 0);
+  };
+
+  // Calculate average objects per successful detection
+  const getAverageObjectsPerSuccess = () => {
+    const detectionsWithObjects = getDetectionsWithObjects();
+    if (!detectionsWithObjects.length) return 0;
+    const totalObjects = getTotalObjects();
+    return (totalObjects / detectionsWithObjects.length).toFixed(1);
+  };
 
   // Format waktu terakhir
   const getLastDetectionTime = () => {
@@ -50,96 +103,73 @@ const DashboardPage = () => {
     return maxClass?.replace("_", " ").toUpperCase() || "Belum ada data";
   };
 
-  // Hitung trend berdasarkan data real
-  const calculateTrend = (type) => {
-    if (!detections.length) return { value: "0%", isPositive: null };
-
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-
-    const thisWeek = detections.filter(
-      (d) => new Date(d.created_at) >= sevenDaysAgo
-    );
-    const lastWeek = detections.filter(
-      (d) =>
-        new Date(d.created_at) >= fourteenDaysAgo &&
-        new Date(d.created_at) < sevenDaysAgo
-    );
-
-    let thisWeekValue = 0;
-    let lastWeekValue = 0;
-
-    switch (type) {
-      case "total":
-        thisWeekValue = thisWeek.length;
-        lastWeekValue = lastWeek.length;
-        break;
-      case "completed":
-        thisWeekValue = thisWeek.filter((d) => d.status === "completed").length;
-        lastWeekValue = lastWeek.filter((d) => d.status === "completed").length;
-        break;
-      case "success_rate":
-        const thisWeekCompleted = thisWeek.filter(
-          (d) => d.status === "completed"
-        ).length;
-        const lastWeekCompleted = lastWeek.filter(
-          (d) => d.status === "completed"
-        ).length;
-        thisWeekValue = thisWeek.length
-          ? (thisWeekCompleted / thisWeek.length) * 100
-          : 0;
-        lastWeekValue = lastWeek.length
-          ? (lastWeekCompleted / lastWeek.length) * 100
-          : 0;
-        break;
-      default:
-        return { value: "N/A", isPositive: null };
-    }
-
-    if (lastWeekValue === 0) {
-      return thisWeekValue > 0
-        ? { value: "New", isPositive: true }
-        : { value: "N/A", isPositive: null };
-    }
-
-    const percentageChange =
-      ((thisWeekValue - lastWeekValue) / lastWeekValue) * 100;
-    const isPositive = percentageChange > 0;
-
-    return {
-      value: `${isPositive ? "+" : ""}${percentageChange.toFixed(1)}%`,
-      isPositive,
-    };
-  };
-
   // Hitung status deteksi terakhir
   const getLastDetectionStatus = () => {
-    if (!detections.length) return { status: "Tidak ada", isActive: false };
+    if (!detections.length) return "Tidak ada";
 
     const lastDetection = detections[0];
     const lastTime = new Date(lastDetection.created_at);
     const now = new Date();
     const diffMinutes = Math.floor((now - lastTime) / (1000 * 60));
 
-    if (diffMinutes < 5) return { status: "Live", isActive: true };
-    if (diffMinutes < 30) return { status: "Recent", isActive: true };
-    return { status: "Idle", isActive: false };
+    if (diffMinutes < 5) return "Tersimpan";
+    if (diffMinutes < 30) return "Tersimpan";
+    return "Idle";
   };
 
   // Hitung popularitas level roasting
   const getRoastPopularity = () => {
-    if (!stats.class_distribution) return { value: "N/A", isPositive: null };
+    if (!stats.class_distribution) return "N/A";
 
     const classes = stats.class_distribution;
     const total = Object.values(classes).reduce((sum, count) => sum + count, 0);
     const maxCount = Math.max(...Object.values(classes));
     const percentage = total > 0 ? (maxCount / total) * 100 : 0;
 
-    return {
-      value: `${percentage.toFixed(1)}%`,
-      isPositive: percentage > 50,
-    };
+    return `${percentage.toFixed(1)}%`;
+  };
+
+  // Get detection status with proper logic
+  const getDetectionDisplayStatus = (detection) => {
+    if (detection.status === "processing") return "processing";
+    if (detection.status === "failed") return "failed";
+    if (detection.status === "completed" && detection.detections_count === 0)
+      return "no_objects";
+    if (detection.status === "completed" && detection.detections_count > 0)
+      return "success";
+    return "unknown";
+  };
+
+  // Get status color
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "success":
+        return "bg-green-500";
+      case "processing":
+        return "bg-yellow-500";
+      case "failed":
+        return "bg-red-500";
+      case "no_objects":
+        return "bg-orange-500";
+      default:
+        return "bg-gray-400";
+    }
+  };
+
+  // Get status text
+  const getStatusText = (status) => {
+    switch (status) {
+      case "success":
+        return "berhasil";
+      case "processing":
+        return "processing";
+      case "failed":
+        return "gagal";
+      case "no_objects":
+        return "tidak ada objek";
+      default:
+        return "unknown";
+    }
   };
 
   // Fixed: Pre-defined color classes untuk distribusi kelas
@@ -155,43 +185,30 @@ const DashboardPage = () => {
     return colors[index % colors.length];
   };
 
-  const getClassBgColor = (index) => {
-    const bgColors = [
-      "bg-coffee-dark",
-      "bg-coffee-medium",
-      "bg-coffee-light",
-      "bg-amber-500",
-      "bg-emerald-500",
-      "bg-violet-500",
-    ];
-    return bgColors[index % bgColors.length];
-  };
-
-  const totalTrend = calculateTrend("total");
-  const completedTrend = calculateTrend("completed");
-  const lastDetectionStatus = getLastDetectionStatus();
-  const roastPopularity = getRoastPopularity();
-
   const summaryData = [
     {
       title: "Total Deteksi",
-      value: stats.total_detections || 0,
+      value: detections.length || 0,
       icon: Target,
       color: "coffee-dark",
       bgColor: "coffee-dark/10",
-      trend: totalTrend.value,
-      isPositive: totalTrend.isPositive,
-      subtitle: "Minggu ini",
+      subtitle: "Total keseluruhan",
+    },
+    {
+      title: "Total Objek",
+      value: getTotalObjects(),
+      icon: Package,
+      color: "blue-600",
+      bgColor: "blue-100",
+      subtitle: "Objek terdeteksi",
     },
     {
       title: "Deteksi Berhasil",
-      value: stats.completed_detections || 0,
+      value: getSuccessfulDetections(),
       icon: CheckCircle,
       color: "emerald-600",
       bgColor: "emerald-100",
-      trend: completedTrend.value,
-      isPositive: completedTrend.isPositive,
-      subtitle: "Success rate",
+      subtitle: "Ada objek terdeteksi",
     },
     {
       title: "Deteksi Terakhir",
@@ -199,9 +216,7 @@ const DashboardPage = () => {
       icon: Clock,
       color: "emerald-500",
       bgColor: "coffee-light/10",
-      trend: lastDetectionStatus.status,
-      isPositive: lastDetectionStatus.isActive,
-      subtitle: "Real-time",
+      subtitle: getLastDetectionStatus(),
     },
     {
       title: "Level Terbanyak",
@@ -209,27 +224,9 @@ const DashboardPage = () => {
       icon: Coffee,
       color: "amber-600",
       bgColor: "amber-100",
-      trend: roastPopularity.value,
-      isPositive: roastPopularity.isPositive,
-      subtitle: "Dominance",
+      subtitle: getRoastPopularity(),
     },
   ];
-
-  // Helper function untuk styling trend
-  const getTrendStyle = (trend, isPositive) => {
-    if (isPositive === null) return "bg-gray-100 text-gray-600";
-    if (isPositive) return "bg-green-100 text-green-800";
-    return "bg-red-100 text-red-800";
-  };
-
-  const getTrendIcon = (isPositive) => {
-    if (isPositive === null) return null;
-    return isPositive ? (
-      <TrendingUp className="w-3 h-3" />
-    ) : (
-      <TrendingDown className="w-3 h-3" />
-    );
-  };
 
   if (statsLoading || detectionsLoading) {
     return (
@@ -265,7 +262,7 @@ const DashboardPage = () => {
             Dashboard
           </h1>
           <p className="text-coffee-medium text-lg">
-            Prediksi tingkat roasting biji kopi secara real-time
+            Prediksi tingkat roasting biji kopi
           </p>
         </div>
         <div className="mt-4 md:mt-0">
@@ -276,8 +273,8 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Summary Cards - With corrected logic */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {summaryData.map((item, index) => (
           <Card
             key={index}
@@ -285,16 +282,6 @@ const DashboardPage = () => {
             <div className="flex items-start justify-between mb-4">
               <div className={`p-3 rounded-xl bg-${item.bgColor}`}>
                 <item.icon className={`w-6 h-6 text-${item.color}`} />
-              </div>
-              <div className="text-right">
-                <span
-                  className={`text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 ${getTrendStyle(
-                    item.trend,
-                    item.isPositive
-                  )}`}>
-                  {getTrendIcon(item.isPositive)}
-                  {item.trend}
-                </span>
               </div>
             </div>
 
@@ -311,21 +298,58 @@ const DashboardPage = () => {
         ))}
       </div>
 
-      {/* Trend Analysis Info */}
-      <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
+      {/* Enhanced Summary Info Card */}
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Activity className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-900">System Status</h3>
+              <p className="text-sm text-blue-700">
+                Sistem detection berjalan normal dengan performance optimal
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-blue-900">Trend Analysis</h3>
-            <p className="text-sm text-blue-700">
-              Data trend dihitung berdasarkan perbandingan minggu ini vs minggu
-              lalu.
-              {detections.length > 0
-                ? ` Analisis dari ${detections.length} deteksi terbaru.`
-                : " Belum ada data untuk analisis trend."}
-            </p>
+
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Package className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-900">
+                Detection Summary
+              </h3>
+              <p className="text-sm text-green-700">
+                {getTotalObjects()} objek dari{" "}
+                {getDetectionsWithObjects().length} deteksi berhasil
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-purple-900">Success Rate</h3>
+              <p className="text-sm text-purple-700">
+                {getActualSuccessRate()}% berhasil menemukan objek
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <Target className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-orange-900">Detection Stats</h3>
+              <p className="text-sm text-orange-700">
+                Avg: {getAverageObjectsPerSuccess()} objek per deteksi berhasil
+              </p>
+            </div>
           </div>
         </div>
       </Card>
@@ -345,53 +369,51 @@ const DashboardPage = () => {
                 </h2>
               </div>
               <div className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-coffee-light" />
+                <Package className="w-5 h-5 text-coffee-light" />
                 <span className="text-sm text-coffee-medium">
-                  {detections.length} total records
+                  {detections.length} total • {getSuccessfulDetections()}{" "}
+                  berhasil
                 </span>
               </div>
             </div>
 
             {detections.length > 0 ? (
               <div className="space-y-4">
-                {detections.slice(0, 8).map((detection) => (
-                  <div
-                    key={detection.id}
-                    className="flex items-center justify-between p-4 bg-coffee-cream/30 rounded-xl border border-coffee-cream hover:bg-coffee-cream/50 transition-all duration-200">
-                    <div className="flex items-center space-x-4">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          detection.status === "completed"
-                            ? "bg-green-500"
-                            : detection.status === "processing"
-                            ? "bg-yellow-500"
-                            : detection.status === "failed"
-                            ? "bg-red-500"
-                            : "bg-gray-400"
-                        }`}></div>
-                      <div>
-                        <p className="font-semibold text-coffee-dark">
-                          {detection.filename}
-                        </p>
-                        <p className="text-sm text-coffee-medium">
-                          {detection.detections_count} deteksi •{" "}
-                          {detection.status}
-                        </p>
+                {detections.slice(0, 8).map((detection) => {
+                  const displayStatus = getDetectionDisplayStatus(detection);
+                  return (
+                    <div
+                      key={detection.id}
+                      className="flex items-center justify-between p-4 bg-coffee-cream/30 rounded-xl border border-coffee-cream hover:bg-coffee-cream/50 transition-all duration-200">
+                      <div className="flex items-center space-x-4">
+                        <div
+                          className={`w-3 h-3 rounded-full ${getStatusColor(
+                            displayStatus
+                          )}`}></div>
+                        <div>
+                          <p className="font-semibold text-coffee-dark">
+                            {detection.filename}
+                          </p>
+                          <p className="text-sm text-coffee-medium">
+                            {detection.detections_count} objek •{" "}
+                            {getStatusText(displayStatus)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-coffee-medium bg-coffee-cream px-2 py-1 rounded-full">
+                          {new Date(detection.created_at).toLocaleTimeString(
+                            "id-ID",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs text-coffee-medium bg-coffee-cream px-2 py-1 rounded-full">
-                        {new Date(detection.created_at).toLocaleTimeString(
-                          "id-ID",
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12">
@@ -406,7 +428,7 @@ const DashboardPage = () => {
           </Card>
         </div>
 
-        {/* Class Distribution - FIXED */}
+        {/* Class Distribution */}
         <div>
           <Card className="p-6 border-0 bg-gradient-to-br from-white to-coffee-cream/10 shadow-coffee">
             <div className="flex items-center space-x-3 mb-6">
@@ -453,7 +475,7 @@ const DashboardPage = () => {
                           </div>
                         </div>
 
-                        {/* Fixed Progress Bar */}
+                        {/* Progress Bar */}
                         <div className="w-full bg-coffee-cream/50 rounded-full h-3 border border-coffee-cream">
                           <div
                             className="h-full rounded-full transition-all duration-700 ease-out shadow-sm"
@@ -477,7 +499,7 @@ const DashboardPage = () => {
             )}
           </Card>
 
-          {/* Quick Stats */}
+          {/* Enhanced Quick Stats */}
           <Card className="p-6 mt-6 border-0 bg-gradient-to-br from-coffee-dark to-coffee-medium text-white shadow-coffee">
             <h3 className="text-lg font-bold mb-4 flex items-center">
               <Coffee className="w-5 h-5 mr-2" />
@@ -486,14 +508,32 @@ const DashboardPage = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-coffee-cream/80">Success Rate</span>
+                <span className="font-bold">{getActualSuccessRate()}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-coffee-cream/80">Total Objects</span>
+                <span className="font-bold text-yellow-300">
+                  {getTotalObjects()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-coffee-cream/80">
+                  Successful Detections
+                </span>
+                <span className="font-bold text-green-300">
+                  {getSuccessfulDetections()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-coffee-cream/80">Failed Detections</span>
+                <span className="font-bold text-red-300">
+                  {getFailedDetections()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-coffee-cream/80">Avg per Success</span>
                 <span className="font-bold">
-                  {stats.total_detections
-                    ? (
-                        (stats.completed_detections / stats.total_detections) *
-                        100
-                      ).toFixed(1)
-                    : 0}
-                  %
+                  {getAverageObjectsPerSuccess()}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -503,23 +543,6 @@ const DashboardPage = () => {
                     ? Object.keys(stats.class_distribution).length
                     : 0}
                 </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-coffee-cream/80">Average Detection</span>
-                <span className="font-bold">
-                  {detections.length
-                    ? (
-                        detections.reduce(
-                          (sum, d) => sum + d.detections_count,
-                          0
-                        ) / detections.length
-                      ).toFixed(1)
-                    : 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-coffee-cream/80">Data Points</span>
-                <span className="font-bold">{detections.length}</span>
               </div>
             </div>
           </Card>
