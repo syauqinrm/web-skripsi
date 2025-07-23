@@ -21,6 +21,7 @@ import {
 import apiService from "../services/api";
 
 const PredictionPage = () => {
+  // State variables
   const [currentDetection, setCurrentDetection] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -29,10 +30,10 @@ const PredictionPage = () => {
   const [capturingFrame, setCapturingFrame] = useState(false);
   const [error, setError] = useState(null);
 
-  // ESP32-CAM specific states
-  const [esp32IP] = useState("172.20.10.2");
-  const [esp32Status, setEsp32Status] = useState("Checking...");
-  const [esp32Connected, setEsp32Connected] = useState(false);
+  // Raspberry Pi specific states
+  const [raspiIP, setRaspiIP] = useState("172.20.10.2");
+  const [raspiStatus, setRaspiStatus] = useState("Checking...");
+  const [raspiConnected, setRaspiConnected] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [detectionEnabled, setDetectionEnabled] = useState(false);
   const [liveDetections, setLiveDetections] = useState([]);
@@ -44,67 +45,67 @@ const PredictionPage = () => {
   const imgRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Check ESP32-CAM connection
-  const checkEsp32Connection = async () => {
+  // Check Raspberry Pi connection
+  const checkRaspiConnection = async () => {
     try {
-      const response = await apiService.checkEsp32Status(esp32IP);
+      const response = await apiService.checkRaspiStatus(raspiIP);
       if (response.status === "ok") {
-        setEsp32Status("ESP32-CAM Connected");
-        setEsp32Connected(true);
+        setRaspiStatus("Raspberry Pi Connected");
+        setRaspiConnected(true);
         return true;
       } else {
-        setEsp32Status("ESP32-CAM Disconnected");
-        setEsp32Connected(false);
+        setRaspiStatus("Raspberry Pi Disconnected");
+        setRaspiConnected(false);
         return false;
       }
     } catch (error) {
-      setEsp32Status("Connection Error");
-      setEsp32Connected(false);
-      console.error("ESP32 connection error:", error);
+      setRaspiStatus("Connection Error");
+      setRaspiConnected(false);
+      console.error("Raspberry Pi connection error:", error);
       return false;
     }
   };
 
-  // Start ESP32-CAM stream
-  const startEsp32Stream = () => {
-    if (!esp32Connected) return;
+  // Start Raspberry Pi stream
+  const startRaspiStream = () => {
+    if (!raspiConnected) return;
 
     if (detectionEnabled) {
-      setStreamUrl(apiService.getEsp32DetectionStreamUrl(esp32IP));
+      setStreamUrl(apiService.getRaspiDetectionStreamUrl(raspiIP));
       setProcessedImageUrl(apiService.getProcessedImageUrl());
     } else {
-      setStreamUrl(apiService.getEsp32StreamUrl(esp32IP));
+      setStreamUrl(apiService.getRaspiStreamUrl(raspiIP));
       setProcessedImageUrl("");
     }
 
-    console.log("ESP32-CAM stream started");
+    console.log("Raspberry Pi stream started");
   };
 
-  // Stop ESP32-CAM stream
-  const stopEsp32Stream = () => {
+  // Stop Raspberry Pi stream
+  const stopRaspiStream = () => {
     setStreamUrl("");
     setProcessedImageUrl("");
-    console.log("ESP32-CAM stream stopped");
+    console.log("Raspberry Pi stream stopped");
   };
 
-  // Toggle live detection
-  const toggleLiveDetection = async () => {
-    if (!esp32Connected) {
-      setError("ESP32-CAM not connected");
+  // Toggle live detection for Raspberry Pi
+  const toggleLiveDetectionRaspi = async () => {
+    if (!raspiConnected) {
+      setError("Raspberry Pi not connected");
       return;
     }
 
     try {
       if (!detectionEnabled) {
-        await apiService.enableEsp32Detection(esp32IP);
+        await apiService.enableRaspiDetection(raspiIP);
         setDetectionEnabled(true);
-        setStreamUrl(apiService.getEsp32DetectionStreamUrl(esp32IP));
+        setStreamUrl(apiService.getRaspiDetectionStreamUrl(raspiIP));
         setProcessedImageUrl(apiService.getProcessedImageUrl());
         console.log("Live detection enabled");
       } else {
-        await apiService.disableEsp32Detection(esp32IP);
+        await apiService.disableRaspiDetection(raspiIP);
         setDetectionEnabled(false);
-        setStreamUrl(apiService.getEsp32StreamUrl(esp32IP));
+        setStreamUrl(apiService.getRaspiStreamUrl(raspiIP));
         setProcessedImageUrl("");
         setLiveDetections([]);
         console.log("Live detection disabled");
@@ -134,10 +135,10 @@ const PredictionPage = () => {
     }
   };
 
-  // Enhanced capture with multiple strategies
-  const handleSaveCapture = async () => {
-    if (!esp32Connected || !isRealTimeMode) {
-      setError("ESP32-CAM not available for capture");
+  // Enhanced capture with multiple strategies for Raspberry Pi
+  const handleSaveCaptureRaspi = async () => {
+    if (!raspiConnected || !isRealTimeMode) {
+      setError("Raspberry Pi not available for capture");
       return;
     }
 
@@ -159,14 +160,14 @@ const PredictionPage = () => {
         }
       }
 
-      // Strategy 2: Direct capture from ESP32-CAM if live stream failed
+      // Strategy 2: Direct capture from Raspberry Pi if live stream failed
       if (!captureResult) {
         try {
-          captureResult = await apiService.captureEsp32Direct(esp32IP);
-          captureMethod = "esp32-direct";
-          console.log("✅ ESP32-CAM direct capture successful");
+          captureResult = await apiService.captureRaspiDirect(raspiIP);
+          captureMethod = "raspi-direct";
+          console.log("✅ Raspberry Pi direct capture successful");
         } catch (error) {
-          console.warn("❌ ESP32-CAM direct capture failed:", error.message);
+          console.warn("❌ Raspberry Pi direct capture failed:", error.message);
         }
       }
 
@@ -244,7 +245,7 @@ const PredictionPage = () => {
     const dataUrl = captureCanvasFrame();
     if (dataUrl) {
       const link = document.createElement("a");
-      link.download = `esp32-capture-${new Date()
+      link.download = `raspi-capture-${new Date()
         .toISOString()
         .slice(0, 19)
         .replace(/:/g, "-")}.jpg`;
@@ -345,9 +346,9 @@ const PredictionPage = () => {
         fileInputRef.current.value = "";
       }
 
-      // Restart ESP32-CAM stream if connected
-      if (esp32Connected) {
-        startEsp32Stream();
+      // Restart Raspberry Pi stream if connected
+      if (raspiConnected) {
+        startRaspiStream();
       }
     } catch (error) {
       console.error("Reset error:", error);
@@ -427,22 +428,22 @@ const PredictionPage = () => {
     );
   };
 
-  // Initialize ESP32-CAM connection
+  // Initialize Raspberry Pi connection
   useEffect(() => {
-    const initializeEsp32 = async () => {
-      console.log("Initializing ESP32-CAM...");
-      const connected = await checkEsp32Connection();
+    const initializeRaspi = async () => {
+      console.log("Initializing Raspberry Pi...");
+      const connected = await checkRaspiConnection();
       if (connected) {
-        startEsp32Stream();
+        startRaspiStream();
       } else {
-        setError("Cannot connect to ESP32-CAM. Please check connection.");
+        setError("Cannot connect to Raspberry Pi. Please check connection.");
       }
     };
 
-    initializeEsp32();
+    initializeRaspi();
 
     return () => {
-      stopEsp32Stream();
+      // Cleanup if needed
     };
   }, []);
 
@@ -480,7 +481,7 @@ const PredictionPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-coffee-cream via-white to-coffee-cream/50">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
@@ -493,28 +494,28 @@ const PredictionPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-          {/* ESP32-CAM Live Detection Toggle */}
-          {isRealTimeMode && esp32Connected && (
+          {/* Raspberry Pi Live Detection Toggle */}
+          {isRealTimeMode && raspiConnected && (
             <Button
-              onClick={toggleLiveDetection}
+              onClick={toggleLiveDetectionRaspi}
               variant={detectionEnabled ? "success" : "outline"}
               className={`${
                 detectionEnabled
                   ? "bg-green-600 hover:bg-green-700"
                   : "border-coffee-medium text-coffee-medium hover:bg-coffee-medium hover:text-white"
               }`}
-              disabled={!esp32Connected}>
+              disabled={!raspiConnected}>
               {detectionEnabled ? <WifiOff size={18} /> : <Wifi size={18} />}
               {detectionEnabled ? "Stop Detection" : "Start Detection"}
             </Button>
           )}
 
-          {/* Enhanced Save Capture button */}
+          {/* Enhanced Save Capture button for Raspberry Pi */}
           {isRealTimeMode && (
             <Button
-              onClick={handleSaveCapture}
+              onClick={handleSaveCaptureRaspi}
               className="bg-coffee-light hover:bg-coffee-light/80 text-white"
-              disabled={capturingFrame || !esp32Connected}>
+              disabled={capturingFrame || !raspiConnected}>
               <Camera size={18} />
               {capturingFrame ? "Capturing..." : "Save Capture"}
             </Button>
@@ -543,19 +544,19 @@ const PredictionPage = () => {
         </Card>
       )}
 
-      {/* ESP32-CAM Status */}
+      {/* Raspberry Pi Status */}
       <Card className="p-6 bg-gradient-to-r from-coffee-dark to-coffee-medium text-white shadow-coffee">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div className="flex items-center space-x-4 mb-4 md:mb-0">
             <div
               className={`w-4 h-4 rounded-full ${
-                esp32Connected ? "bg-green-400" : "bg-red-400"
+                raspiConnected ? "bg-green-400" : "bg-red-400"
               } animate-pulse`}></div>
             <div>
-              <h3 className="text-lg font-bold">ESP32-CAM Status</h3>
-              <p className="text-coffee-cream/90">{esp32Status}</p>
+              <h3 className="text-lg font-bold">Raspberry Pi Status</h3>
+              <p className="text-coffee-cream/90">{raspiStatus}</p>
               <p className="text-coffee-cream/80 text-sm">
-                ESP32-CAM | Stream: {streamUrl ? "Active" : "Inactive"}
+                Raspberry Pi | Stream: {streamUrl ? "Active" : "Inactive"}
                 {detectionEnabled && " | Live Detection: ON"}
               </p>
               {lastDetectionTime && (
@@ -568,16 +569,16 @@ const PredictionPage = () => {
 
           <div className="flex gap-2">
             <Button
-              onClick={startEsp32Stream}
+              onClick={startRaspiStream}
               variant="outline"
               className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               size="sm"
-              disabled={!esp32Connected}>
+              disabled={!raspiConnected}>
               <Eye size={16} />
               Start Stream
             </Button>
             <Button
-              onClick={stopEsp32Stream}
+              onClick={stopRaspiStream}
               variant="outline"
               className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               size="sm">
@@ -589,7 +590,7 @@ const PredictionPage = () => {
       </Card>
 
       {/* Capture Ready Alert */}
-      {isRealTimeMode && esp32Connected && (
+      {isRealTimeMode && raspiConnected && (
         <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-coffee">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div className="flex items-center space-x-4 mb-4 md:mb-0">
@@ -612,10 +613,10 @@ const PredictionPage = () => {
 
             <div className="flex gap-2">
               <Button
-                onClick={handleSaveCapture}
+                onClick={handleSaveCaptureRaspi}
                 className="bg-green-600 hover:bg-green-700 text-white"
                 size="sm"
-                disabled={capturingFrame || !esp32Connected}>
+                disabled={capturingFrame || !raspiConnected}>
                 <Camera size={16} />
                 {capturingFrame ? "Saving..." : "Quick Capture"}
               </Button>
@@ -638,7 +639,7 @@ const PredictionPage = () => {
                     </div>
                     <h3 className="text-lg font-bold text-coffee-dark mb-2">
                       {capturingFrame
-                        ? "Menyimpan ESP32-CAM capture..."
+                        ? "Menyimpan Raspberry Pi capture..."
                         : "Memuat..."}
                     </h3>
                     <p className="text-coffee-medium">Mohon tunggu sebentar</p>
@@ -674,21 +675,23 @@ const PredictionPage = () => {
                 </>
               ) : (
                 <>
-                  {/* ESP32-CAM stream */}
-                  {streamUrl && esp32Connected ? (
+                  {/* Raspberry Pi stream */}
+                  {streamUrl && raspiConnected ? (
                     <div className="relative">
                       <img
                         ref={imgRef}
                         src={streamUrl}
-                        alt="ESP32-CAM Stream"
+                        alt="Raspberry Pi Stream"
                         className="w-full h-auto min-h-[450px] max-h-[600px] object-cover bg-coffee-dark"
                         style={{ aspectRatio: "16/9" }}
                         onError={(e) => {
-                          console.error("ESP32-CAM stream error");
-                          setError("ESP32-CAM stream error. Check connection.");
+                          console.error("Raspberry Pi stream error");
+                          setError(
+                            "Raspberry Pi stream error. Check connection."
+                          );
                         }}
                         onLoad={() => {
-                          console.log("ESP32-CAM stream loaded");
+                          console.log("Raspberry Pi stream loaded");
                           setError(null);
                         }}
                       />
@@ -713,12 +716,12 @@ const PredictionPage = () => {
                           <Camera size={24} />
                         </div>
                         <h3 className="text-xl font-bold mb-2">
-                          ESP32-CAM Stream
+                          Raspberry Pi Stream
                         </h3>
                         <p className="text-coffee-cream/80">
-                          {esp32Connected
+                          {raspiConnected
                             ? "Click 'Start Stream' to begin"
-                            : `Connecting to ESP32-CAM...`}
+                            : `Connecting to Raspberry Pi...`}
                         </p>
                       </div>
                     </div>
@@ -731,7 +734,7 @@ const PredictionPage = () => {
                         <div className="flex items-center space-x-3">
                           <Camera className="w-5 h-5 animate-pulse" />
                           <span className="font-semibold">
-                            Capturing ESP32-CAM Frame...
+                            Capturing Raspberry Pi Frame...
                           </span>
                         </div>
                       </div>
@@ -760,7 +763,7 @@ const PredictionPage = () => {
                 </div>
                 <p className="text-sm text-coffee-medium">
                   {isRealTimeMode
-                    ? "ESP32-CAM real-time menggunakan stream eksternal. Pastikan pencahayaan memadai dan koneksi WiFi stabil. Aktifkan 'Live Detection' untuk deteksi real-time, lalu simpan capture ketika objek terdeteksi."
+                    ? "Raspberry Pi real-time menggunakan stream webcam. Pastikan pencahayaan memadai dan koneksi WiFi stabil. Aktifkan 'Live Detection' untuk deteksi real-time, lalu simpan capture ketika objek terdeteksi."
                     : "Gunakan gambar dengan kualitas baik dan pencahayaan yang memadai untuk hasil deteksi optimal."}
                 </p>
               </div>
@@ -810,11 +813,11 @@ const PredictionPage = () => {
                   {resetting
                     ? "Mereset..."
                     : capturingFrame
-                    ? "Menyimpan ESP32-CAM capture..."
+                    ? "Menyimpan Raspberry Pi capture..."
                     : isRealTimeMode
                     ? detectionEnabled
                       ? "Live Detection Active"
-                      : "ESP32-CAM Stream Ready"
+                      : "Raspberry Pi Stream Ready"
                     : getStatusText()}
                 </span>
               </div>
@@ -824,20 +827,18 @@ const PredictionPage = () => {
                 <div className="flex items-center space-x-2 justify-between">
                   <span
                     className={`font-semibold ${
-                      esp32Connected ? "text-green-600" : "text-red-600"
+                      raspiConnected ? "text-green-600" : "text-red-600"
                     }`}>
-                    {isRealTimeMode
-                      ? `ESP32-CAM`
-                      : "Upload Gambar"}
+                    {isRealTimeMode ? `Raspberry Pi` : "Upload Gambar"}
                   </span>
                   {isRealTimeMode && (
                     <span
                       className={`text-xs py-1 px-2 rounded-full ${
-                        esp32Connected
+                        raspiConnected
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}>
-                      {esp32Connected ? "✓ Connected" : "✗ Disconnected"}
+                      {raspiConnected ? "✓ Connected" : "✗ Disconnected"}
                     </span>
                   )}
                 </div>
@@ -900,7 +901,7 @@ const PredictionPage = () => {
                 ) : isRealTimeMode && liveDetections.length > 0 ? (
                   <div className="space-y-2">
                     <p className="text-sm text-blue-600 font-medium mb-3">
-                      ESP32-CAM real-time deteksi:
+                      Raspberry Pi real-time deteksi:
                     </p>
                     {liveDetections.map((detection, index) => (
                       <div
@@ -930,7 +931,7 @@ const PredictionPage = () => {
                     <p className="text-coffee-medium">
                       {isRealTimeMode
                         ? detectionEnabled
-                          ? "Menunggu deteksi dari ESP32-CAM..."
+                          ? "Menunggu deteksi dari Raspberry Pi..."
                           : "Aktifkan 'Live Detection' untuk deteksi real-time"
                         : "Pilih gambar untuk deteksi"}
                     </p>
@@ -965,17 +966,17 @@ const PredictionPage = () => {
                 </Button>
               )}
 
-              {/* ESP32-CAM real-time controls */}
+              {/* Raspberry Pi real-time controls */}
               {isRealTimeMode && !resetting && (
                 <div className="space-y-3">
                   <Button
-                    onClick={toggleLiveDetection}
+                    onClick={toggleLiveDetectionRaspi}
                     className={`w-full ${
                       detectionEnabled
                         ? "bg-red-600 hover:bg-red-700"
                         : "bg-coffee-dark hover:bg-coffee-medium"
                     } text-white`}
-                    disabled={!esp32Connected}>
+                    disabled={!raspiConnected}>
                     {detectionEnabled ? (
                       <WifiOff size={18} />
                     ) : (
@@ -986,35 +987,32 @@ const PredictionPage = () => {
                       : "Start Live Detection"}
                   </Button>
 
-                  {liveDetections.length > 0 && esp32Connected && (
+                  {liveDetections.length > 0 && raspiConnected && (
                     <Button
-                      onClick={handleSaveCapture}
+                      onClick={handleSaveCaptureRaspi}
                       className="w-full bg-coffee-light hover:bg-coffee-light/80 text-white"
                       disabled={capturingFrame}>
                       <Camera size={18} />
                       {capturingFrame
                         ? "Menyimpan..."
-                        : "Save ESP32-CAM Capture"}
+                        : "Save Raspberry Pi Capture"}
                     </Button>
                   )}
 
                   <div className="text-center p-4 bg-coffee-cream/30 rounded-xl">
                     <p className="text-sm text-coffee-medium font-medium">
                       {detectionEnabled
-                        ? "Mode deteksi real-time ESP32-CAM aktif"
-                        : "Mode stream ESP32-CAM"}
+                        ? "Mode deteksi real-time Raspberry Pi aktif"
+                        : "Mode stream Raspberry Pi"}
                     </p>
-                    {/* <p className="text-xs text-coffee-medium mt-1">
-                      ESP32-CAM Stream: {esp32IP}:81
-                    </p> */}
-                    {liveDetections.length > 0 && esp32Connected && (
+                    {liveDetections.length > 0 && raspiConnected && (
                       <p className="text-xs text-green-600 mt-2">
-                        ✓ Siap untuk capture ESP32-CAM
+                        ✓ Siap untuk capture Raspberry Pi
                       </p>
                     )}
-                    {!esp32Connected && (
+                    {!raspiConnected && (
                       <p className="text-xs text-red-600 mt-2">
-                        ✗ ESP32-CAM tidak terhubung
+                        ✗ Raspberry Pi tidak terhubung
                       </p>
                     )}
                   </div>

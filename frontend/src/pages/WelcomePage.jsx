@@ -67,7 +67,7 @@ const WelcomePage = () => {
     {
       icon: Camera,
       title: "Real-Time Prediksi",
-      description: "Live stream ESP32-CAM untuk prediksi langsung",
+      description: "Live stream Raspberry Pi untuk prediksi langsung",
       gradient: "from-coffee-medium to-coffee-light",
       delay: "150ms",
     },
@@ -267,8 +267,8 @@ const WelcomePage = () => {
             </h1>
 
             <p className="text-xl md:text-2xl text-coffee-cream/90 mb-12 max-w-4xl mx-auto leading-relaxed">
-              Sistem deteksi real-time dengan teknologi YOLOv8 dan ESP32-CAM
-              untuk identifikasi tingkat roasting biji kopi yang akurat dan
+              Sistem deteksi real-time dengan teknologi YOLOv8 dan Raspberry Pi
+              4 untuk identifikasi tingkat roasting biji kopi yang akurat dan
               efisien.
             </p>
 
@@ -746,7 +746,7 @@ const WelcomePage = () => {
 
             <div className="text-coffee-cream/70 text-center md:text-right">
               <p className="text-lg font-medium">© 2025 CoffeeVision</p>
-              <p className="text-sm">Powered by YOLOv8 & ESP32-CAM</p>
+              <p className="text-sm">Powered by YOLOv8 & Raspberry Pi 4</p>
             </div>
           </div>
         </div>

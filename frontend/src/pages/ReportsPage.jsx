@@ -38,8 +38,10 @@ import {
   Layers,
   Database,
   XCircle,
+  Cpu,
+  Monitor,
 } from "lucide-react";
-import { useDetections, useStats } from "../hooks/useApi"; // Import useStats
+import { useDetections, useStats } from "../hooks/useApi";
 import apiService from "../services/api";
 
 const ReportsPage = () => {
@@ -222,7 +224,7 @@ const ReportsPage = () => {
     };
   }, [allDetections]);
 
-  // Local detection summary untuk halaman saat ini (opsional untuk perbandingan)
+  // Local detection summary untuk halaman saat ini
   const currentPageSummary = useMemo(() => {
     if (!detections.length) return null;
 
@@ -374,7 +376,7 @@ const ReportsPage = () => {
     );
   };
 
-  // Status functions tetap sama
+  // Status functions
   const getStatusIcon = (detection) => {
     const actualStatus = getActualDetectionStatus(detection);
 
@@ -421,6 +423,31 @@ const ReportsPage = () => {
       default:
         return "unknown";
     }
+  };
+
+  // Helper function untuk menentukan capture method (diubah dari ESP32 ke Raspberry Pi)
+  const getCaptureMethodInfo = (detection) => {
+    // Check filename pattern untuk menentukan capture method
+    const filename = detection.filename || "";
+
+    if (
+      filename.includes("raspi_capture_") ||
+      filename.includes("raspi_direct_")
+    ) {
+      return {
+        method: "Raspberry Pi",
+        type: filename.includes("direct") ? "Direct Capture" : "Live Stream",
+        icon: <Cpu className="w-4 h-4" />,
+        color: "bg-green-100 text-green-800 border-green-200",
+      };
+    }
+
+    return {
+      method: "Manual Upload",
+      type: "File Upload",
+      icon: <Monitor className="w-4 h-4" />,
+      color: "bg-blue-100 text-blue-800 border-blue-200",
+    };
   };
 
   // Filter detections untuk halaman saat ini
@@ -814,7 +841,7 @@ const ReportsPage = () => {
           </p>
         </div>
 
-        {/* Tambahkan filter dan search controls jika diperlukan */}
+        {/* Filter dan search controls */}
         <div className="mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="relative">
@@ -858,12 +885,14 @@ const ReportsPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredDetections.map((detection) => {
               const actualStatus = getActualDetectionStatus(detection);
+              const captureInfo = getCaptureMethodInfo(detection);
+
               return (
                 <Card
                   key={detection.id}
                   className="overflow-hidden cursor-pointer hover:shadow-coffee-lg transition-all duration-300 transform hover:scale-105 border-0 bg-gradient-to-br from-white to-coffee-cream/20"
                   onClick={() => handleCardClick(detection)}>
-                  {/* Card content tetap sama */}
+                  {/* Card content */}
                   <div className="relative h-48 bg-coffee-cream/30">
                     <img
                       src={
@@ -900,6 +929,15 @@ const ReportsPage = () => {
                       )}
                     </div>
 
+                    {/* Capture method indicator */}
+                    <div className="absolute top-3 left-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 ${captureInfo.color}`}>
+                        {captureInfo.icon}
+                        {captureInfo.method}
+                      </span>
+                    </div>
+
                     {detection.detections_count > 0 && (
                       <div className="absolute bottom-3 left-3 bg-coffee-dark/80 text-white px-3 py-1 rounded-full text-sm font-semibold">
                         {detection.detections_count} objek
@@ -927,6 +965,13 @@ const ReportsPage = () => {
                               : "text-yellow-600"
                           }`}>
                           {getStatusText(detection)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-coffee-medium">Source:</span>
+                        <span className="font-semibold text-coffee-dark text-xs">
+                          {captureInfo.type}
                         </span>
                       </div>
 
@@ -1028,7 +1073,7 @@ const ReportsPage = () => {
         )}
       </div>
 
-      {/* Pagination dengan informasi yang lebih akurat */}
+      {/* Pagination */}
       {pagination && pagination.total > 0 && (
         <div className="flex justify-center items-center space-x-4 p-6 bg-white rounded-2xl shadow-lg border border-coffee-cream/30">
           <Button
@@ -1075,7 +1120,7 @@ const ReportsPage = () => {
         </div>
       )}
 
-      {/* Modal tetap sama seperti sebelumnya */}
+      {/* Modal dengan informasi Raspberry Pi (menghapus ESP32) */}
       <Modal
         isOpen={showModal}
         onClose={handleCloseModal}
@@ -1086,7 +1131,7 @@ const ReportsPage = () => {
         {selectedDetection && (
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Images Section (unchanged) */}
+              {/* Images Section */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2 mb-4">
                   <ImageIcon className="w-5 h-5 text-coffee-light" />
@@ -1365,11 +1410,11 @@ const ReportsPage = () => {
                         )}
 
                       <div className="bg-white p-3 rounded-lg">
-                        <p className="text-sm text-gray-600">
-                          <strong>Confidence Score</strong> mengukur tingkat
-                          kepercayaan model AI terhadap setiap deteksi objek.
-                          Skor yang lebih tinggi menunjukkan model lebih yakin
-                          dengan hasil deteksinya.
+                        <p className="text-sm text-green-700">
+                          {getCaptureMethodInfo(selectedDetection).method ===
+                          "Raspberry Pi"
+                            ? "📸 Gambar diambil menggunakan Raspberry Pi 4 dengan webcam USB untuk deteksi real-time biji kopi."
+                            : "📁 Gambar diunggah secara manual melalui antarmuka web untuk analisis offline."}
                         </p>
                       </div>
                     </div>
@@ -1423,31 +1468,69 @@ const ReportsPage = () => {
                   </p>
                 </div>
 
-                {/* ESP32 IP and Capture Method */}
-                <div className="bg-coffee-cream/20 p-4 rounded-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-coffee-dark">
-                      Source:
-                    </span>
-                    <span className="text-coffee-dark font-mono text-sm">
-                      {selectedDetection.esp32_ip || "Manual Upload"}
-                    </span>
+                {/* Raspberry Pi Source and Capture Method (menghapus ESP32) */}
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-xl border border-green-200">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Cpu className="w-4 h-4 text-green-600" />
+                    <h4 className="font-semibold text-green-900">
+                      Capture Information
+                    </h4>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-coffee-dark">
-                      Capture Method:
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        selectedDetection.capture_method === "live-stream"
-                          ? "bg-blue-100 text-blue-800"
-                          : selectedDetection.capture_method === "esp32-direct"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                      {selectedDetection.capture_method || "upload"}
-                    </span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-green-800">
+                        Method:
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {getCaptureMethodInfo(selectedDetection).icon}
+                        <span className="font-semibold text-green-900">
+                          {getCaptureMethodInfo(selectedDetection).method}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-green-800">Type:</span>
+                      <span className="font-semibold text-green-900">
+                        {getCaptureMethodInfo(selectedDetection).type}
+                      </span>
+                    </div>
+
+                    {/* Menghapus Status IP ESP32 dan menggantinya dengan info Raspberry Pi */}
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-green-800">
+                        Source Device:
+                      </span>
+                      <span className="font-semibold text-green-900">
+                        {getCaptureMethodInfo(selectedDetection).method ===
+                        "Raspberry Pi"
+                          ? "Raspberry Pi 4"
+                          : "Manual Upload"}
+                      </span>
+                    </div>
+
+                    {/* Tambahan info untuk Raspberry Pi */}
+                    {getCaptureMethodInfo(selectedDetection).method ===
+                      "Raspberry Pi" && (
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-green-800">
+                          Capture Mode:
+                        </span>
+                        <span className="font-semibold text-green-900">
+                          {getCaptureMethodInfo(selectedDetection).type}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="bg-white p-3 rounded-lg">
+                      <p className="text-sm text-green-700">
+                        {getCaptureMethodInfo(selectedDetection).method ===
+                        "Raspberry Pi"
+                          ? "📸 Gambar diambil menggunakan Raspberry Pi 4 dengan webcam USB untuk deteksi real-time biji kopi."
+                          : "📁 Gambar diunggah secara manual melalui antarmuka web untuk analisis offline."}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -2,7 +2,7 @@
 const detectApiUrl = async () => {
   const hostname = window.location.hostname;
   const possibleUrls = [
-    `http://${hostname}:5000/api`,
+    `http://${hostname}:5000/api/detect`,
     `http://localhost:5000/api`,
     `http://127.0.0.1:5000/api`,
     import.meta.env.VITE_API_BASE_URL,
@@ -131,7 +131,7 @@ class ApiService {
     }
   }
 
-  // ESP32-CAM Live Stream Detection
+  // Raspberry Pi Live Stream Detection
   async getLatestDetection() {
     const response = await fetch(`${API_BASE_URL}/live-stream/latest`);
     return this.handleResponse(response);
@@ -142,22 +142,22 @@ class ApiService {
     return `${API_BASE_URL}/live-stream/processed-image?t=${Date.now()}`;
   }
 
-  // ESP32-CAM specific endpoints
-  async checkEsp32Status(esp32IP) {
+  // Raspberry Pi specific endpoints
+  async checkRaspiStatus(raspiIP) {
     try {
-      const response = await fetch(`http://${esp32IP}/status`, {
+      const response = await fetch(`http://${raspiIP}:8080/status`, {
         method: "GET",
         timeout: 5000,
       });
       return this.handleResponse(response);
     } catch (error) {
-      throw new Error(`ESP32-CAM connection failed: ${error.message}`);
+      throw new Error(`Raspberry Pi connection failed: ${error.message}`);
     }
   }
 
-  async enableEsp32Detection(esp32IP) {
+  async enableRaspiDetection(raspiIP) {
     try {
-      const response = await fetch(`http://${esp32IP}/enable-detection`, {
+      const response = await fetch(`http://${raspiIP}:8080/enable-detection`, {
         method: "POST",
       });
       return this.handleResponse(response);
@@ -166,9 +166,9 @@ class ApiService {
     }
   }
 
-  async disableEsp32Detection(esp32IP) {
+  async disableRaspiDetection(raspiIP) {
     try {
-      const response = await fetch(`http://${esp32IP}/disable-detection`, {
+      const response = await fetch(`http://${raspiIP}:8080/disable-detection`, {
         method: "POST",
       });
       return this.handleResponse(response);
@@ -177,13 +177,13 @@ class ApiService {
     }
   }
 
-  // Get ESP32-CAM stream URLs
-  getEsp32StreamUrl(esp32IP) {
-    return `http://${esp32IP}:81/stream`;
+  // Get Raspberry Pi stream URLs
+  getRaspiStreamUrl(raspiIP) {
+    return `http://${raspiIP}:8081/stream`;
   }
 
-  getEsp32DetectionStreamUrl(esp32IP) {
-    return `http://${esp32IP}:81/detected-stream`;
+  getRaspiDetectionStreamUrl(raspiIP) {
+    return `http://${raspiIP}:8081/detected-stream`;
   }
 
   // Capture live stream frame
@@ -202,44 +202,70 @@ class ApiService {
     }
   }
 
-  // Capture directly from ESP32-CAM
-  async captureEsp32Direct(esp32IP) {
+  // Capture directly from Raspberry Pi
+  async captureRaspiDirect(raspiIP) {
     try {
-      const response = await fetch(`${API_BASE_URL}/capture/esp32-direct`, {
+      const response = await fetch(`${API_BASE_URL}/capture/raspi-direct`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ esp32_ip: esp32IP }),
+        body: JSON.stringify({ raspi_ip: raspiIP }),
       });
 
       return this.handleResponse(response);
     } catch (error) {
-      throw new Error(`ESP32-CAM direct capture failed: ${error.message}`);
+      throw new Error(`Raspberry Pi direct capture failed: ${error.message}`);
     }
   }
 
-  // Enhanced ESP32-CAM capture with better error handling
-  async captureEsp32Frame(esp32IP) {
+  // Enhanced Raspberry Pi capture with better error handling
+  async captureRaspiFrame(raspiIP) {
     try {
-      const response = await fetch(`http://${esp32IP}/capture`, {
+      const response = await fetch(`http://${raspiIP}/capture`, {
         method: "GET",
         timeout: 10000, // 10 second timeout
       });
 
       if (!response.ok) {
-        throw new Error(`ESP32-CAM response: ${response.status}`);
+        throw new Error(`Raspberry Pi response: ${response.status}`);
       }
 
       return this.handleResponse(response);
     } catch (error) {
-      throw new Error(`ESP32-CAM capture failed: ${error.message}`);
+      throw new Error(`Raspberry Pi capture failed: ${error.message}`);
     }
   }
 
-  // Get single frame from ESP32-CAM
-  getEsp32CaptureUrl(esp32IP) {
-    return `http://${esp32IP}/capture-frame`;
+  // Get single frame from Raspberry Pi
+  getRaspiCaptureUrl(raspiIP) {
+    return `http://${raspiIP}/capture-frame`;
+  }
+
+  // Test Raspberry Pi connection
+  async testRaspiConnection(raspiIP) {
+    try {
+      const response = await fetch(`http://${raspiIP}/test-backend`, {
+        method: "GET",
+        timeout: 5000,
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`Raspberry Pi test failed: ${error.message}`);
+    }
+  }
+
+  // Get Raspberry Pi detection status
+  async getRaspiDetectionStatus(raspiIP) {
+    try {
+      const response = await fetch(`http://${raspiIP}/detection-status`, {
+        method: "GET",
+        timeout: 3000,
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      throw new Error(`Failed to get detection status: ${error.message}`);
+    }
   }
 }
 

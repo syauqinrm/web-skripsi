@@ -26,9 +26,9 @@ latest_detection_results = {
     'raw_image': None  # Store raw image for capture
 }
 
-@detection_bp.route('/detect/live-stream', methods=['POST'])
+@detection_bp.route('/live-stream', methods=['POST'])
 def detect_live_stream():
-    """Handle live stream detection from ESP32-CAM"""
+    """Handle live stream detection from Raspberry Pi"""
     try:
         if 'image' not in request.files:
             return jsonify({'success': False, 'error': 'No image file provided'}), 400
@@ -123,8 +123,8 @@ def capture_live_stream():
         
         # Generate unique filename
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        original_filename = f"esp32_capture_{timestamp}.jpg"
-        result_filename = f"esp32_capture_{timestamp}_result.jpg"
+        original_filename = f"raspi_capture_{timestamp}.jpg"
+        result_filename = f"raspi_capture_{timestamp}_result.jpg"
         
         # Save paths
         original_path = os.path.join(current_app.config['UPLOAD_FOLDER'], original_filename)
@@ -173,22 +173,19 @@ def capture_live_stream():
             'error': f'Capture failed: {str(e)}'
         }), 500
 
-@detection_bp.route('/capture/esp32-direct', methods=['POST'])
-def capture_esp32_direct():
-    """Capture image directly from ESP32-CAM and process it"""
+@detection_bp.route('/capture/raspi-direct', methods=['POST'])
+def capture_raspi_direct():
+    """Capture image directly from Raspberry Pi and process it"""
     try:
-        # Get ESP32-CAM IP from request
+        # Get Raspberry Pi IP from request
         data = request.get_json()
-        esp32_ip = data.get('esp32_ip', '172.20.10.2')
+        raspi_ip = data.get('raspi_ip', '172.20.10.2')  # Default Raspberry Pi IP
         
-        # Fetch current frame directly from ESP32-CAM
+        # Fetch current frame directly from Raspberry Pi
         import requests
         
-        # Get frame from ESP32-CAM
-        esp32_url = f"http://{esp32_ip}:81/stream"
-        
-        # Alternative: Get single frame
-        capture_url = f"http://{esp32_ip}/capture-frame"
+        # Get single frame from Raspberry Pi
+        capture_url = f"http://{raspi_ip}/capture-frame"
         
         try:
             response = requests.get(capture_url, timeout=10)
@@ -229,8 +226,8 @@ def capture_esp32_direct():
                 
                 # Save images
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                original_filename = f"esp32_direct_{timestamp}.jpg"
-                result_filename = f"esp32_direct_{timestamp}_result.jpg"
+                original_filename = f"raspi_direct_{timestamp}.jpg"
+                result_filename = f"raspi_direct_{timestamp}_result.jpg"
                 
                 original_path = os.path.join(current_app.config['UPLOAD_FOLDER'], original_filename)
                 result_path = os.path.join(current_app.config['RESULTS_FOLDER'], result_filename)
@@ -258,7 +255,7 @@ def capture_esp32_direct():
                 
                 return jsonify({
                     'success': True,
-                    'message': 'ESP32-CAM frame captured and processed successfully',
+                    'message': 'Raspberry Pi frame captured and processed successfully',
                     'detection_id': detection_record.id,
                     'detections_count': detection_count,
                     'detections': results.get('detections', []),
@@ -268,13 +265,13 @@ def capture_esp32_direct():
             else:
                 return jsonify({
                     'success': False,
-                    'error': f'Failed to capture from ESP32-CAM: {response.status_code}'
+                    'error': f'Failed to capture from Raspberry Pi: {response.status_code}'
                 }), 400
                 
         except requests.exceptions.RequestException as e:
             return jsonify({
                 'success': False,
-                'error': f'ESP32-CAM connection failed: {str(e)}'
+                'error': f'Raspberry Pi connection failed: {str(e)}'
             }), 500
             
     except Exception as e:
@@ -284,7 +281,6 @@ def capture_esp32_direct():
             'error': f'Direct capture failed: {str(e)}'
         }), 500
 
-# Keep all existing endpoints...
 @detection_bp.route('/live-stream/latest', methods=['GET'])
 def get_latest_detection():
     """Get latest detection results for live stream"""
@@ -333,7 +329,6 @@ def get_processed_image():
     except Exception as e:
         return jsonify({'error': f'Failed to get processed image: {str(e)}'}), 500
 
-# Keep all existing endpoints...
 @detection_bp.route('/detect/<int:detection_id>', methods=['POST'])
 def detect_objects(detection_id):
     try:
@@ -490,14 +485,14 @@ def detect_from_frame():
         return jsonify({
             'success': True,
             'boxes': response_boxes
-        }), 200
+        }, 200)
 
     except Exception as e:
-        return jsonify({'success': False, 'error': f'Detection failed: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': f'Detection failed: {str(e)}'}, 500)
 
 @detection_bp.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint for ESP32-CAM"""
+    """Health check endpoint for Raspberry Pi"""
     return jsonify({
         'status': 'healthy',
         'message': 'Detection service is running',
